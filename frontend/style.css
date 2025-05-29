@@ -1,0 +1,551 @@
+html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f8f9fa;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh; /* Ensure body takes at least full viewport height */
+}
+
+header {
+    width: 100%;
+    max-width: 1000px;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+.logo {
+    height: 30px;
+}
+
+.rss-feed-button {
+    background-color: #e9ecef;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: #333;
+}
+
+.rss-feed-button svg {
+    margin-right: 6px;
+}
+
+main {
+    width: 100%;
+    max-width: 1000px;
+    padding: 0 20px 40px 20px; /* Changed padding-bottom to 40px */
+    box-sizing: border-box;
+    flex-grow: 1; /* Allow main to grow and push footer down */
+}
+
+.overall-status {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 40px 0;
+}
+
+.status-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 20px;
+}
+
+.status-icon.operational {
+    background-color: #28a745; /* Green for operational */
+}
+
+.status-icon.degraded {
+    background-color: #ffc107; /* Yellow for degraded */
+}
+
+.status-icon.outage {
+    background-color: #dc3545; /* Red for outage */
+}
+
+.overall-status h1 {
+    font-size: 32px;
+    margin-bottom: 8px;
+    color: #212529;
+}
+
+.overall-status p a {
+    color: #6c757d;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.overall-status p a:hover {
+    text-decoration: underline;
+}
+
+.live-status h2 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    color: #212529;
+}
+
+.tabs {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #6c757d;
+    border-bottom: 2px solid transparent;
+    margin-right: 5px;
+}
+
+.tab-button.active {
+    color: #0d6efd;
+    border-bottom-color: #0d6efd;
+}
+
+.time-range {
+    margin-bottom: 20px;
+    text-align: right;
+}
+
+.time-button {
+    background-color: #e9ecef;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 5px;
+    color: #495057;
+}
+
+.time-button.active {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+.status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.service-status {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 10px 20px; /* row-gap column-gap */
+}
+
+.service-info {
+    display: flex;
+    align-items: center;
+    grid-column: 1 / 2;
+}
+
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 12px;
+}
+
+.status-indicator.operational {
+    background-color: #28a745;
+}
+
+.status-indicator.degraded {
+    background-color: #ffc107;
+}
+
+.status-indicator.outage {
+    background-color: #dc3545;
+}
+
+.service-info h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #343a40;
+}
+
+.status-text {
+    margin: 0;
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.uptime-percentage {
+    font-size: 16px;
+    font-weight: bold;
+    color: #343a40;
+    text-align: right;
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+}
+
+.uptime-label {
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: normal;
+    display: block;
+}
+
+.status-bars {
+    grid-column: 1 / -1; /* Span across all columns */
+    display: flex;
+    gap: 1px;
+    height: 40px;
+    background-color: #e9ecef; /* Background for the bar container */
+    padding: 2px; /* Small padding to see the background */
+    border-radius: 4px;
+}
+
+.status-bar {
+    flex-grow: 1;
+    background-color: #28a745; /* Green for operational */
+    border-radius: 2px; /* Slightly rounded individual bars */
+}
+
+.status-bar.degraded {
+    background-color: #ffc107; /* Yellow for degraded */
+}
+
+.status-bar.outage {
+    background-color: #dc3545; /* Red for outage */
+}
+
+.status-bar.no-data {
+    background-color: #e0e0e0; /* Light grey for no data */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .service-status {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        gap: 15px;
+    }
+
+    .service-info {
+        grid-column: 1 / -1;
+    }
+
+    .uptime-percentage {
+        text-align: left;
+        grid-column: 1 / -1;
+        grid-row: 2 / 3;
+    }
+
+    .status-bars {
+        grid-row: 3 / 4;
+    }
+
+    .time-range {
+        text-align: left;
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+    .tabs {
+        justify-content: flex-start;
+    }
+
+    header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .rss-feed-button {
+        margin-top: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .overall-status h1 {
+        font-size: 28px;
+    }
+    .live-status h2 {
+        font-size: 20px;
+    }
+    .tab-button, .time-button {
+        font-size: 13px;
+        padding: 8px 10px;
+    }
+    .service-info h3 {
+        font-size: 16px;
+    }
+    .status-text, .uptime-label {
+        font-size: 12px;
+    }
+    .uptime-percentage {
+        font-size: 14px;
+    }
+    .connect-section h2 {
+        font-size: 20px;
+    }
+    .email-link {
+        font-size: 14px;
+    }
+    .social-icons svg {
+        width: 20px;
+        height: 20px;
+    }
+    .footer-small-logo {
+        margin-bottom: 10px;
+    }
+    .verified-staking {
+        font-size: 11px;
+    }
+    .footer-links a {
+        font-size: 12px;
+    }
+}
+
+/* Tooltip Styles */
+.tooltip {
+    position: absolute;
+    background-color: #212529; /* Dark background */
+    color: white;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+    z-index: 1000;
+    pointer-events: none; /* Prevents tooltip from interfering with mouse events */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    white-space: nowrap;
+}
+
+.tooltip-arrow {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    /* This will be adjusted by JS to point up or down */
+}
+
+.tooltip p {
+    margin: 4px 0;
+}
+
+.tooltip-date {
+    font-size: 12px;
+    color: #adb5bd; /* Lighter text for date */
+}
+
+.tooltip-uptime strong {
+    color: white;
+}
+
+.tooltip-downtime {
+    color: #ced4da; /* Slightly lighter for downtime specifics */
+}
+
+footer {
+    background-color: #1A1A1A; /* Dark background similar to screenshot */
+    color: #E0E0E0; /* Light grey text */
+    padding: 40px 20px;
+    font-family: 'Arial', sans-serif; /* Consistent font */
+    width: 100%; /* Added width */
+    box-sizing: border-box; /* Added box-sizing */
+    margin-top: auto; /* Added to push footer to bottom */
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-bottom: 30px;
+    border-bottom: 1px solid #444; /* Separator line */
+}
+
+.connect-section h2 {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: #FFFFFF;
+}
+
+.email-link {
+    color: #82C9FF; /* Light blue for email, matching screenshot */
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+}
+
+.email-link:hover {
+    text-decoration: underline;
+}
+
+.email-link svg {
+    width: 20px;
+    height: 20px;
+}
+
+.social-icons {
+    display: flex;
+    gap: 15px;
+}
+
+.social-icons a {
+    color: #A0A0A0; /* Grey for icons */
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #333333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.social-icons a:hover {
+    background-color: #454545;
+    color: #FFFFFF;
+}
+
+.social-icons svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
+.footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 20px auto 0;
+    padding-top: 20px;
+}
+
+.footer-logo-area {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.footer-small-logo {
+    height: auto; /* Maintain aspect ratio */
+    width: 70px; /* New width */
+    margin-right: 15px;
+}
+
+.verified-staking {
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    color: #A0A0A0;
+}
+
+.verified-staking span:first-child {
+    font-weight: bold;
+    color: #E0E0E0;
+}
+
+.footer-links a {
+    color: #A0A0A0;
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+}
+
+.footer-links a:hover {
+    text-decoration: underline;
+    color: #FFFFFF;
+}
+
+/* Responsive adjustments for footer */
+@media (max-width: 768px) {
+    .footer-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .connect-section {
+        margin-bottom: 30px;
+    }
+
+    .social-icons {
+        margin-bottom: 20px; /* Space before bottom section on mobile */
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .footer-logo-area {
+        margin-bottom: 20px;
+    }
+
+    .footer-links a {
+        margin: 0 10px;
+        display: block; /* Stack links on small screens */
+        margin-bottom: 10px;
+    }
+
+     .footer-links a:last-child {
+        margin-bottom: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .connect-section h2 {
+        font-size: 20px;
+    }
+    .email-link {
+        font-size: 14px;
+    }
+     .social-icons a {
+        width: 36px;
+        height: 36px;
+    }
+    .social-icons svg {
+        width: 18px;
+        height: 18px;
+    }
+    .footer-small-logo {
+        margin-bottom: 10px;
+    }
+    .verified-staking {
+        font-size: 11px;
+    }
+    .footer-links a {
+        font-size: 12px;
+    }
+} 

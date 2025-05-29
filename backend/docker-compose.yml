@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: status_page_app
+    restart: unless-stopped
+    env_file:
+      - .env # Load environment variables from .env file in this directory
+    # The environment variables (PROXY_PORT, ACTUAL_PROMETHEUS_URL, NODE_ENV)
+    # will be picked up from the .env file by docker-compose and passed to the container.
+    # Your proxy-server.js already reads these from process.env.
+    volumes:
+      # If you want live-reloading for development, you could mount your source code:
+      # - .: /usr/src/app 
+      # Make sure to run npm install locally if you do this for dev
+      # For production, the files are copied in the Dockerfile, so this isn't strictly necessary
+      # unless proxy-services-config.yaml needs to be changed without rebuilding the image.
+      - ./proxy-services-config.yaml:/usr/src/app/proxy-services-config.yaml:ro
+    # networks:
+    #   - app-network # See below if using a custom network
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: status_page_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro # Mount the SSL certificates
+    depends_on:
+      - app
+    # networks:
+    #   - app-network
+
+# Optional: Define a custom network if you want more isolation
+# networks:
+#   app-network:
+#     driver: bridge 

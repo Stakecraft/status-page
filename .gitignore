@@ -1,0 +1,30 @@
+# Node.js
+node_modules/
+
+# Operating System files
+.DS_Store
+*.pem
+
+# SSL certificates (if self-signed and stored in repo - better to keep out)
+# backend/nginx/ssl/selfsigned.key
+# backend/nginx/ssl/selfsigned.crt
+
+# Environment files
+.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker - if you build images locally and they produce files
+# docker-compose.override.yml
+
+# Optional: Editor directories and files
+.idea/
+.vscode/
+status-page.code-workspace
+*.swp
+*~ 
