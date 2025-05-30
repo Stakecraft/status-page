@@ -3,7 +3,7 @@
 // API_BASE_URL points to your backend server that proxies requests to Prometheus and GitHub.
 // For local development, this will be your local proxy (e.g., http://localhost:3000).
 // For production, this will be your deployed backend URL (e.g., https://api.status.stakecraft.com).
-const API_BASE_URL = 'http://localhost:3000'; // <-- IMPORTANT: Set for local dev. Change for prod.
+const API_BASE_URL = 'https://api.status.stakecraft.com'; // <-- IMPORTANT: Set for local dev. Change for prod.
 
 // SERVICES_CONFIG defines what services the frontend should display.
 // Each 'serviceId' MUST correspond to a 'serviceId' defined in the proxy's .env configuration.
