@@ -3,8 +3,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // const SERVICES_CONFIG = [ ... ]; // Defined in config.js
 
     // Ensure SERVICES_CONFIG is available from config.js
-    if (typeof SERVICES_CONFIG === 'undefined' || typeof PROMETHEUS_URL === 'undefined') {
-        console.error("CRITICAL: config.js is not loaded or PROMETHEUS_URL/SERVICES_CONFIG are not defined.");
+    if (typeof SERVICES_CONFIG === 'undefined' || typeof API_BASE_URL === 'undefined') {
+        console.error("CRITICAL: config.js is not loaded or API_BASE_URL/SERVICES_CONFIG are not defined.");
         const mainContent = document.querySelector('main');
         if (mainContent) {
             mainContent.innerHTML = '<h1 style="color: red; text-align: center;">Configuration Error: Please check console.</h1>';
@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     async function fetchFromProxy(endpointPath) {
-        const url = `${PROMETHEUS_URL}${endpointPath}`;
+        const url = `${API_BASE_URL}${endpointPath}`;
         // console.log(`[fetchFromProxy] Attempting to fetch URL: ${url}`);
         try {
             const response = await fetch(url);

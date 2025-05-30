@@ -548,4 +548,199 @@ footer {
     .footer-links a {
         font-size: 12px;
     }
+}
+
+/* Styles for Incident History Page (incident-history.html) */
+
+/* Body specific to incident page if needed, or ensure general body styles apply well */
+/* .incident-history-page body { ... } */ /* Example if you add a class to body in incident-history.html */
+
+/* Header styling is likely shared from existing styles, ensure .logo, etc. are covered */
+.incident-history-page .back-link a {
+    /* Assuming general 'a' or header 'a' styles might not cover this specifically if not in header */
+    color: white; /* This was in inline, ensure it's correctly scoped or inherited */
+    text-decoration: none;
+    font-size: 1em;
+}
+
+/* Main content area for incident history page */
+.incident-history-page main {
+    padding: 20px;
+    max-width: 900px;
+    margin: 20px auto;
+    border-radius: 8px;
+}
+
+.incident-history-page h1 {
+    color: #2c3e50;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.incident {
+    background-color: white; 
+    border-radius: 8px; 
+    padding: 20px;
+    margin-bottom: 20px; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: none; 
+}
+
+.incident-title {
+    font-size: 1.4em; /* Larger title */
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+.incident-title a {
+    color: #0056b3; /* Darker blue for title link */
+    text-decoration: none;
+}
+.incident-title a:hover {
+    text-decoration: underline;
+}
+
+.incident-meta {
+    font-size: 0.85em;
+    color: #6c757d; /* Grey for meta text */
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap; /* Allow meta items to wrap on small screens */
+    gap: 5px 15px; /* Row and column gap for meta items */
+}
+
+.incident-meta span {
+    display: inline-flex; 
+    align-items: center;
+    padding: 2px 0px; /* Small padding for meta items */
+}
+
+.incident-date::before { /* Optional: icon for date */
+    /* content: '📅'; margin-right: 5px; */
+}
+
+.incident-status-display {
+    font-weight: bold;
+    padding: 3px 8px; /* Default padding for badge appearance */
+    border-radius: 4px;
+    font-size: 0.9em;   /* Consistent font size with severity badges */
+    display: inline-block; /* Ensure padding and background apply correctly */
+    line-height: 1.5; /* Ensure text fits well within the badge */
+}
+
+/* --- Status Text Colors & Badges --- */
+/* These classes are added to the .incident-status-display span */
+
+.incident-status-display.status-resolved {
+    background-color: #28a745; /* Prominent Green (Bootstrap success) */
+    color: white;
+}
+
+.incident-status-display.status-monitoring {
+    background-color: #fd7e14; /* Orange (Bootstrap warning-ish) */
+    color: white;
+}
+
+.incident-status-display.status-investigating {
+    background-color: #0dcaf0; /* Info Blue/Teal (Bootstrap info) */
+    color: #000; /* Dark text for lighter backgrounds */
+}
+
+.incident-status-display.status-identified {
+    background-color: #6f42c1; /* Purple (custom or Bootstrap-inspired) */
+    color: white;
+}
+
+/* REMOVE any old styling blocks for: */
+/* .status-resolved { color: #2ecc71; } (old green) */
+/* .status-monitoring { color: #f39c12; } (old orange) */
+/* .status-investigating { color: #3498db; } (old blue) */
+/* AND the specific block: */
+/* .incident .status { ... } */
+
+/* Severity styling (already added) */
+.incident-severity {
+    font-weight: bold;
+    padding: 2px 6px; /* Add some padding to severity similar to a badge */
+    border-radius: 4px;
+    font-size: 0.9em; /* Slightly smaller text */
+    color: white; /* Default text color for severity badges */
+}
+
+/* Severity Level Colors (customize as needed) */
+.incident-severity-critical {
+    background-color: #dc3545; /* Red */
+}
+.incident-severity-high {
+    background-color: #fd7e14; /* Orange */
+}
+.incident-severity-medium {
+    background-color: #ffc107; /* Yellow */
+    color: #212529; /* Darker text for yellow background for readability */
+}
+.incident-severity-low {
+    background-color: #17a2b8; /* Info Blue */
+}
+.incident-severity-informational { /* Added for informational severity */
+    background-color: #5bc0de; /* Light blue */
+    color: white;
+}
+.incident-severity-unknown {
+    background-color: #6c757d; /* Grey */
+}
+
+.incident-affected-services {
+    /* Styles for affected services if needed, e.g., to make it look like tags */
+    font-style: italic;
+}
+
+/* Status colors are already defined: .status-resolved, .status-monitoring, etc. */
+/* Ensure these are the colors you want */
+/* .status-resolved { color: #28a745; } REMOVE THIS LINE */
+/* .status-monitoring { color: #fd7e14; } REMOVE THIS LINE */
+/* .status-investigating { color: #0dcaf0; } REMOVE THIS LINE */
+/* .status-identified { color: #6f42c1; } REMOVE THIS LINE */
+
+/* .incident .status { REMOVE THIS OLD RULE 
+     font-weight: bold;
+     margin-bottom: 10px;
+} */
+
+/* ... rest of existing CSS ... */
+
+.incident .date { /* This was for the old date style, now using .incident-date */
+    /* Remove or adjust */
+}
+
+/* .incident .status { REMOVE THIS OLD RULE 
+     font-weight: bold;
+     margin-bottom: 10px;
+} */
+
+/* ... rest of existing CSS ... */
+
+/* Read More Button Styling */
+.read-more-button {
+    background-color: #007bff; /* Bootstrap primary blue */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 15px;
+    font-size: 0.9em;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+    display: inline-block; /* Or block if it should take full width of its container */
+    margin-top: 10px; /* Space above the button */
+    transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+}
+
+.read-more-button:hover,
+.read-more-button:focus { /* Added :focus for accessibility and keyboard navigation */
+    background-color: #0056b3; /* Darker blue on hover/focus */
+    outline: none; /* Remove default focus outline if custom styling is sufficient */
+}
+
+.read-more-button:active {
+    background-color: #004085; /* Even darker blue when clicked */
+    transform: translateY(1px); /* Slight press effect */
 } 

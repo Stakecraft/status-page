@@ -1,3 +1,5 @@
+require('dotenv').config(); // Load environment variables from .env file
+
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
@@ -8,6 +10,12 @@ const path = require('path');
 const app = express();
 const PROXY_SERVER_PORT = process.env.PROXY_PORT || 3000; // Can still use .env for this if you like
 const ACTUAL_PROMETHEUS_URL = process.env.ACTUAL_PROMETHEUS_URL || 'http://127.0.0.1:9090'; // Or this
+
+// GitHub API Configuration
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER;
+const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME;
+const GITHUB_INCIDENT_LABEL = process.env.GITHUB_INCIDENT_LABEL || 'incident'; // Default to 'incident'
 
 // CORS configuration
 const corsOptions = {
@@ -41,7 +49,8 @@ try {
     console.error('[Proxy Startup] CRITICAL: Error loading or parsing YAML configuration file:', e);
 }
 
-app.use(cors(corsOptions));
+// app.use(cors(corsOptions)); // Use specific origin for production
+app.use(cors()); // Allow all origins for local development
 app.use(express.json());
 
 // Helper to fetch from the actual Prometheus instance
@@ -66,7 +75,79 @@ async function queryPrometheus(prometheusQueryPath) {
     }
 }
 
-// --- New Proxy Endpoints ---
+// --- GitHub Incidents Endpoint ---
+app.get('/api/github-incidents', async (req, res) => {
+    if (!GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME) {
+        console.error('[GitHub Incidents] Missing GITHUB_TOKEN, GITHUB_REPO_OWNER, or GITHUB_REPO_NAME in environment variables.');
+        return res.status(500).json({ error: 'GitHub integration not configured on server.' });
+    }
+
+    const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/issues`;
+    const params = new URLSearchParams({
+        labels: GITHUB_INCIDENT_LABEL,
+        state: 'all', // Fetch both open and closed issues
+        sort: 'created',
+        direction: 'desc', // Most recent first
+        per_page: 10 // Fetch latest 10 incidents, adjust as needed
+    });
+
+    try {
+        console.log(`[GitHub Incidents] Fetching incidents from ${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME} with label ${GITHUB_INCIDENT_LABEL}`);
+        const response = await fetch(`${GITHUB_API_URL}?${params.toString()}`, {
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error(`[GitHub Incidents] GitHub API request failed: ${response.status}`, errorData);
+            throw new Error(`GitHub API request failed: ${response.status}`);
+        }
+
+        const issues = await response.json();
+        
+        const incidents = issues.map(issue => {
+            let severity = null;
+            const severityLabel = issue.labels.find(label => label.name.startsWith('severity:') || label.name.startsWith('sev:'));
+            if (severityLabel) {
+                severity = severityLabel.name.split(':')[1]; // Get value after ':'
+            }
+
+            let affectedServices = [];
+            issue.labels.forEach(label => {
+                if (label.name.startsWith('service:')) {
+                    affectedServices.push(label.name.split(':')[1]);
+                }
+            });
+
+            return {
+                id: issue.id,
+                title: issue.title,
+                url: issue.html_url,      
+                number: issue.number,
+                createdAt: issue.created_at, 
+                updatedAt: issue.updated_at, 
+                closedAt: issue.closed_at,   
+                state: issue.state, 
+                labels: issue.labels.map(label => label.name),
+                body: issue.body, 
+                statusText: issue.state === 'closed' ? 'Resolved' : (issue.labels.find(l => l.name.startsWith('status:'))?.name.split(':')[1] || 'Open'),
+                severity: severity, // Add severity
+                affectedServices: affectedServices // Add affected services
+            };
+        });
+
+        res.json(incidents);
+
+    } catch (error) {
+        console.error('[GitHub Incidents] Error fetching incidents:', error);
+        res.status(500).json({ error: 'Failed to fetch incidents from GitHub.' });
+    }
+});
+
+// --- Prometheus Proxy Endpoints ---
 
 // Endpoint for current status
 app.get('/api/status/:serviceId', async (req, res) => {
@@ -158,6 +239,11 @@ app.get('/api/history/:serviceId', async (req, res) => {
 app.listen(PROXY_SERVER_PORT, () => {
     console.log(`Local Prometheus Proxy server (v4 - YAML config) running on http://localhost:${PROXY_SERVER_PORT}`);
     console.log(`Proxying to Prometheus at: ${ACTUAL_PROMETHEUS_URL}`);
+    if (GITHUB_TOKEN && GITHUB_REPO_OWNER && GITHUB_REPO_NAME) {
+        console.log(`GitHub Incident Integration: Enabled for ${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}, label: '${GITHUB_INCIDENT_LABEL}'`);
+    } else {
+        console.warn('[Proxy Startup] GitHub Incident Integration: DISABLED due to missing GITHUB_TOKEN, GITHUB_REPO_OWNER, or GITHUB_REPO_NAME.');
+    }
     if (Object.keys(DETAILED_SERVICES_CONFIG).length > 0) {
         console.log('--- Services Configured in Proxy (from proxy-services-config.yaml) ---');
         for (const id in DETAILED_SERVICES_CONFIG) {

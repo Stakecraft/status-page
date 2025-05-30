@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident History - Stakecraft Status</title>
+    <link rel="stylesheet" href="style.css"> <!-- Link to your main stylesheet -->
+    <script src="config.js"></script> <!-- Load config first -->
+</head>
+<body class="incident-history-page">
+    <header>
+        <a href="index.html"><img src="https://stakecraft.com/assets/headerLogo-CfNQNJUs.svg" alt="Stakecraft Logo" class="logo"></a>
+        <div class="back-link">
+            <a href="index.html">&larr; Back to Status</a>
+        </div>
+    </header>
+
+    <main>
+        <h1>Incident History</h1>
+
+        <div id="incident-list" class="incident-list-container">
+            <p class="loading-incidents">Loading incidents...</p>
+            <!-- Incidents will be loaded here by JavaScript -->
+        </div>
+        
+        <p class="all-incidents-link" style="text-align: center; margin-top: 20px;">
+            <a id="view-all-incidents-link-history" href="#" target="_blank" rel="noopener noreferrer">View all incidents on GitHub &rarr;</a>
+        </p>
+
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="connect-section">
+                <h2>Let's Connect</h2>
+                <a href="mailto:support@stakecraft.com" class="email-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 6L12 13L2 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    support@stakecraft.com
+                </a>
+            </div>
+            <div class="social-icons">
+                <a href="tg://resolve?domain=stakecraft" aria-label="Telegram" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M9.78 18.65l.28-4.23l7.68-6.92c.34-.31-.07-.49-.52-.32l-9.04 3.47c-.45.17-.44.5.02.64l2.86.94l6.49-4.91c.3-.23.57-.1.28.14l-5.22 4.72l-.28 4.23c.45-.01.65-.2.9-.43l1.92-1.85l3.83 2.84c.72.43 1.22.21 1.39-.69l2.08-9.75c.23-.97-.42-1.34-1.05-1.06L4.61 11.39c-.92.35-.91 1.04.08 1.32l2.56.83l.28 4.23z"/></svg></a>
+                <a href="https://x.com/stakecraft" aria-label="X (Twitter)" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26l8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+                <a href="https://discord.gg/xkYnNYV4qH" aria-label="Discord" target="_blank" rel="noopener noreferrer"><svg viewBox='0 0 22 24' xmlns='http://www.w3.org/2000/svg'><path d='M8.74841 10.068C8.06441 10.068 7.52441 10.668 7.52441 11.4C7.52441 12.132 8.07641 12.732 8.74841 12.732C9.43241 12.732 9.97241 12.132 9.97241 11.4C9.98441 10.668 9.43241 10.068 8.74841 10.068ZM13.1284 10.068C12.4444 10.068 11.9044 10.668 11.9044 11.4C11.9044 12.132 12.4564 12.732 13.1284 12.732C13.8124 12.732 14.3524 12.132 14.3524 11.4C14.3524 10.668 13.8124 10.068 13.1284 10.068Z' fill='currentColor'/><path d='M18.9604 0H2.88041C1.52441 0 0.42041 1.104 0.42041 2.472V18.696C0.42041 20.064 1.52441 21.168 2.88041 21.168H16.4884L15.8524 18.948L17.3884 20.376L18.8404 21.72L21.4204 24V2.472C21.4204 1.104 20.3164 0 18.9604 0ZM14.3284 15.672C14.3284 15.672 13.8964 15.156 13.5364 14.7C15.1084 14.256 15.7084 13.272 15.7084 13.272C15.2164 13.596 14.7484 13.824 14.3284 13.98C13.7284 14.232 13.1524 14.4 12.5884 14.496C11.4364 14.712 10.3804 14.652 9.48041 14.484C8.79641 14.352 8.20841 14.16 7.71641 13.968C7.44041 13.86 7.14041 13.728 6.84041 13.56C6.80441 13.536 6.76841 13.524 6.73241 13.5C6.70841 13.488 6.69641 13.476 6.68441 13.464C6.46841 13.344 6.34841 13.26 6.34841 13.26C6.34841 13.26 6.92441 14.22 8.44841 14.676C8.08841 15.132 7.64441 15.672 7.64441 15.672C4.99241 15.588 3.98441 13.848 3.98441 13.848C3.98441 9.984 5.71241 6.852 5.71241 6.852C7.44041 5.556 9.08441 5.592 9.08441 5.592L9.20441 5.736C7.04441 6.36 6.04841 7.308 6.04841 7.308C6.04841 7.308 6.31241 7.164 6.75641 6.96C8.04041 6.396 9.06041 6.24 9.48041 6.204C9.55241 6.192 9.61241 6.18 9.68441 6.18C10.4164 6.084 11.2444 6.06 12.1084 6.156C13.2484 6.288 14.4724 6.624 15.7204 7.308C15.7204 7.308 14.7724 6.408 12.7324 5.784L12.9004 5.592C12.9004 5.592 14.5444 5.556 16.2724 6.852C16.2724 6.852 18.0004 9.984 18.0004 13.848C18.0004 13.848 16.9804 15.588 14.3284 15.672Z' fill='currentColor'/></svg></a>
+                <a href="https://stakecraft.medium.com" aria-label="Medium" target="_blank" rel="noopener noreferrer"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1770 1000" fill="currentColor">
+                    <circle cx="500" cy="500" r="500"/>
+                    <ellipse ry="475" rx="250" cy="501" cx="1296"/>
+                    <ellipse cx="1682" cy="502" rx="88" ry="424"/>
+                  </svg></a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <div class="footer-logo-area">
+                <img src="https://stakecraft.com/assets/footerlogo-8j5lFCF0.svg" alt="Stakecraft Small Logo" class="footer-small-logo">
+                <div class="verified-staking">
+                    <span><a href="https://www.stakingrewards.com/provider/stakecraft" target="_blank" rel="noopener noreferrer" style="color: white; text-decoration: none; font-weight: bold;">Staking Rewards</a></span>
+                    <span><a href="https://www.stakingrewards.com/provider/stakecraft" target="_blank" rel="noopener noreferrer" style="color: white; text-decoration: none;">Verified Staking Provider</a></span>
+                </div>
+            </div>
+            <div class="footer-links">
+                <a href="#">Terms and conditions</a>
+                <a href="#">Privacy policy</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const GITHUB_REPO_OWNER = 'Stakecraft'; // Updated owner
+        const GITHUB_REPO_NAME = 'status-page';   // Updated repo name
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const incidentList = document.getElementById('incident-list');
+            const loadingMessage = document.querySelector('.loading-incidents');
+            const viewAllLink = document.getElementById('view-all-incidents-link-history');
+
+            // Set the GitHub issues link dynamically
+            if (viewAllLink) { // Simplified condition
+                viewAllLink.href = `https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/issues`; // Direct link to issues page
+            } else {
+                 console.warn("[IncidentHistory] 'View all incidents' link element not found.");
+            }
+
+
+            async function fetchIncidents() {
+                console.log('[IncidentHistory] Attempting to fetch incidents...');
+                console.log('[IncidentHistory] API_BASE_URL from config:', typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'NOT DEFINED');
+
+                try {
+                    if (typeof API_BASE_URL === 'undefined') {
+                        console.error('[IncidentHistory] CRITICAL: API_BASE_URL is not defined. Ensure config.js is loaded and defines it.');
+                        incidentList.innerHTML = '<p class="error-message">Configuration error: API endpoint not defined (API_BASE_URL missing).</p>';
+                        if (loadingMessage) loadingMessage.remove();
+                        return;
+                    }
+
+                    const fetchUrl = `${API_BASE_URL}/api/github-incidents`;
+                    console.log('[IncidentHistory] Fetching from URL:', fetchUrl);
+
+                    const response = await fetch(fetchUrl);
+                    console.log('[IncidentHistory] Response received. Status:', response.status, 'OK:', response.ok);
+
+                    if (!response.ok) {
+                        const errorText = await response.text(); // Try to get more error info from response body
+                        console.error('[IncidentHistory] HTTP error from server. Status:', response.status, response.statusText, 'Response body:', errorText);
+                        throw new Error(`HTTP error! status: ${response.status} ${response.statusText}. Server said: ${errorText}`);
+                    }
+
+                    const incidents = await response.json();
+                    console.log('[IncidentHistory] Incidents data received:', incidents);
+
+                    if (loadingMessage) {
+                        loadingMessage.remove();
+                    }
+                    renderIncidents(incidents);
+                } catch (error) {
+                    console.error('[IncidentHistory] Error in fetchIncidents catch block:', error);
+                    if (incidentList) {
+                        incidentList.innerHTML = '<p class="error-message">Could not load incidents. Check console for [IncidentHistory] errors.</p>';
+                    }
+                    if (loadingMessage) {
+                        loadingMessage.remove();
+                    }
+                }
+            }
+
+            function renderIncidents(incidents) {
+                if (!incidentList) return;
+                incidentList.innerHTML = ''; // Clear loading message or previous content
+
+                if (!incidents || incidents.length === 0) {
+                    incidentList.innerHTML = '<p>No recent incidents found.</p>';
+                    return;
+                }
+
+                incidents.forEach(incident => {
+                    const incidentDiv = document.createElement('div');
+                    incidentDiv.className = 'incident';
+
+                    console.log('[IncidentHistory] Processing incident:', incident.title, 'createdAt value:', incident.createdAt, 'type:', typeof incident.createdAt, 'body exists:', !!incident.body, 'html_url:', incident.html_url);
+
+                    let dateStr = "Date not available";
+                    let timeStr = "Time not available";
+
+                    if (incident.createdAt && typeof incident.createdAt === 'string') {
+                        const createdDate = new Date(incident.createdAt);
+                        if (createdDate && !isNaN(createdDate.getTime())) { 
+                            dateStr = createdDate.toLocaleDateString('en-US', {
+                                year: 'numeric', month: 'long', day: 'numeric'
+                            });
+                            timeStr = createdDate.toLocaleTimeString('en-US', {
+                                hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+                            });
+                        } else {
+                            console.warn('[IncidentHistory] Failed to parse incident.createdAt:', incident.createdAt, 'for incident:', incident.title, '(Resulting date object was invalid)');
+                        }
+                    } else {
+                        console.warn('[IncidentHistory] Missing, null, or non-string type for incident.createdAt:', incident.createdAt, 'for incident:', incident.title);
+                    }
+
+                    // Use statusText from the API, and derive class from it
+                    let statusTextFromAPI = incident.statusText || (incident.state === 'closed' ? 'Resolved' : 'Open'); // Fallback if not provided
+                    let statusClass = 'status-investigating'; // Default class
+
+                    if (statusTextFromAPI.toLowerCase() === 'resolved') {
+                        statusClass = 'status-resolved';
+                    } else if (statusTextFromAPI.toLowerCase() === 'monitoring') {
+                        statusClass = 'status-monitoring';
+                    } else if (statusTextFromAPI.toLowerCase() === 'identified') {
+                        statusClass = 'status-identified';
+                    } else if (statusTextFromAPI.toLowerCase() === 'investigating') {
+                        // Keep status-investigating class if API says investigating
+                         statusClass = 'status-investigating';
+                    } else if (statusTextFromAPI.toLowerCase() === 'open') {
+                        // If API just says 'Open' and no other specific status, use investigating as default visual
+                        statusClass = 'status-investigating'; 
+                        statusTextFromAPI = 'Investigating'; // Standardize display text for 'Open'
+                    }
+                    // Add more specific class mappings if needed based on other statusTextFromAPI values
+
+                    // Create new structure for incident item
+                    let titleHtml = `<h3 class="incident-title">${incident.title}</h3>`; // Always render as plain text
+
+                    incidentDiv.innerHTML = `
+                        ${titleHtml}
+                        <div class="incident-meta">
+                            <span class="incident-date">${dateStr} - ${timeStr}</span>
+                            <span class="incident-status-display ${statusClass}">Status: ${statusTextFromAPI}</span>
+                            ${incident.severity ? `<span class="incident-severity incident-severity-${incident.severity.toLowerCase()}">Severity: ${incident.severity}</span>` : ''}
+                            ${incident.affectedServices && incident.affectedServices.length > 0 ? `<span class="incident-affected-services">Affected: ${incident.affectedServices.join(', ')}</span>` : ''}
+                        </div>
+                    `;
+
+                    const bodyContainer = document.createElement('div');
+                    bodyContainer.className = 'incident-body-container';
+
+                    const fullBodyHtml = parseMarkdown(incident.body || '');
+                    const previewCharLimit = 150; // Adjusted preview length slightly
+
+                    const previewDiv = document.createElement('div');
+                    previewDiv.className = 'incident-body-preview';
+
+                    const fullDiv = document.createElement('div');
+                    fullDiv.className = 'incident-body-full';
+                    fullDiv.innerHTML = fullBodyHtml;
+                    fullDiv.style.display = 'none';
+
+                    let readMoreButton = null;
+
+                    if (incident.body && incident.body.length > previewCharLimit) {
+                        let previewText = incident.body.substring(0, previewCharLimit);
+                        if (incident.body.length > previewCharLimit) {
+                            const lastSpace = previewText.lastIndexOf(' ');
+                            if (lastSpace > 0) {
+                                previewText = previewText.substring(0, lastSpace);
+                            }
+                        }
+                        previewDiv.innerHTML = parseMarkdown(previewText + '...');
+                        
+                        readMoreButton = document.createElement('button');
+                        readMoreButton.className = 'read-more-button'; // Changed from link to button
+                        readMoreButton.textContent = 'Read more';
+                        
+                        bodyContainer.appendChild(previewDiv);
+                        bodyContainer.appendChild(fullDiv);
+                    } else {
+                        previewDiv.innerHTML = fullBodyHtml;
+                        bodyContainer.appendChild(previewDiv);
+                    }
+                    
+                    incidentDiv.appendChild(bodyContainer);
+                    if (readMoreButton) {
+                        incidentDiv.appendChild(readMoreButton);
+                    }
+                    
+                    incidentList.appendChild(incidentDiv);
+                });
+
+                // Event listener for "Read more" buttons
+                incidentList.addEventListener('click', function(event) {
+                    if (event.target.classList.contains('read-more-button')) {
+                        event.preventDefault(); // Keep if it was a link, optional for button
+                        const button = event.target;
+                        const incidentElement = button.closest('.incident');
+                        if (!incidentElement) return;
+
+                        const preview = incidentElement.querySelector('.incident-body-preview');
+                        const full = incidentElement.querySelector('.incident-body-full');
+
+                        if (preview && full) {
+                            if (full.style.display === 'none') {
+                                full.style.display = 'block';
+                                preview.style.display = 'none';
+                                button.textContent = 'Read less';
+                            } else {
+                                full.style.display = 'none';
+                                preview.style.display = 'block';
+                                button.textContent = 'Read more';
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Simple markdown to HTML (supports bold, italic, links, lists, code blocks)
+            function parseMarkdown(md) {
+                if (!md) return '';
+
+                let html = md;
+                // GitHub Issue body often uses \\r\\n for newlines. Normalize to \n.
+                html = html.replace(/\r\n/g, '\n');
+
+                // Headers (e.g., #### Update) - reduce severity
+                html = html.replace(/^#### (.*$)/gim, '<h5>$1</h5>');
+                html = html.replace(/^### (.*$)/gim, '<h4>$1</h4>');
+                html = html.replace(/^## (.*$)/gim, '<h3>$1</h3>');
+                html = html.replace(/^# (.*$)/gim, '<h2>$1</h2>');
+
+                // Bold (**text** or __text__)
+                html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+                html = html.replace(/__(.*?)__/gim, '<strong>$1</strong>');
+                
+                // Italic (*text* or _text_)
+                html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+                html = html.replace(/_(.*?)_/gim, '<em>$1</em>');
+
+                // Strikethrough (~~text~~)
+                html = html.replace(/~~(.*?)~~/gim, '<del>$1</del>');
+
+                // Code blocks (```lang\ncode\n``` or ```\ncode\n```)
+                html = html.replace(/```(\w*)\n([\s\S]*?)\n```/gim, (match, lang, code) => {
+                    const languageClass = lang ? `language-${lang}` : '';
+                    const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    return `<pre><code class="${languageClass}">${escapedCode}</code></pre>`;
+                });
+
+                // Inline code (`code`)
+                html = html.replace(/`([^`]+)`/gim, '<code>$1</code>');
+
+                // Links [text](url)
+                html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+                
+                // Handle Lists (UL and OL)
+                // Unordered lists
+                html = html.replace(/^\s*[-*+] (.*)/gm, '<li>$1</li>');
+                // Ordered lists
+                html = html.replace(/^\s*\d+\. (.*)/gm, '<li data-ordered="true">$1</li>'); // Mark ordered list items
+
+                // Wrap consecutive <li> items in <ul> or <ol>
+                html = html.replace(/((?:<li>(?:.*)<\/li>\s*)+)/g, (match) => {
+                    if (match.includes('<li data-ordered="true">')) {
+                        return '<ol>' + match.replace(/<li data-ordered="true">/g, '<li>') + '</ol>';
+                    }
+                    return '<ul>' + match + '</ul>';
+                });
+
+                // Paragraphs and line breaks
+                html = html.split('\n\n').map(paragraph => {
+                    if (!paragraph.trim()) return '';
+                    if (paragraph.startsWith('<pre>') || paragraph.startsWith('<ul>') || paragraph.startsWith('<ol>') || 
+                        paragraph.startsWith('<h5>') || paragraph.startsWith('<h4>') || paragraph.startsWith('<h3>') || 
+                        paragraph.startsWith('<h2>') || paragraph.startsWith('<h1>') || paragraph.startsWith('<li>')) {
+                        return paragraph; // Don't wrap these blocks or list items in <p>
+                    }
+                    // Convert single newlines to <br> within a paragraph
+                    return '<p>' + paragraph.replace(/\n/g, '<br>') + '</p>';
+                }).join('');
+                
+                html = html.replace(/<p>\s*<(ul|ol|li|h[1-6]|pre)/g, '<$1'); // Remove <p> before block/list elements
+                html = html.replace(/<\/(ul|ol|li|h[1-6]|pre)>\s*<\/p>/g, '</$1>'); // Remove </p> after block/list elements
+                html = html.replace(/<p><br><\/p>/g, '');
+                html = html.replace(/<p><\/p>/g, '');
+
+                return html;
+            }
+
+            fetchIncidents();
+        });
+    </script>
+</body>
+</html> 
