@@ -33,7 +33,7 @@ try {
 
         if (yamlConfig && Array.isArray(yamlConfig.services)) {
             yamlConfig.services.forEach(service => {
-                if (service.serviceId && service.metricName && service.jobLabel && service.healthyValue && service.displayName) {
+                if (service.serviceId && service.metricName && service.jobLabel && service.healthCondition && service.displayName) {
                     DETAILED_SERVICES_CONFIG[service.serviceId] = service;
                 } else {
                     console.warn('[Proxy Startup] Invalid service entry in YAML config, missing required fields:', service);
@@ -52,6 +52,41 @@ try {
 // app.use(cors(corsOptions)); // Use specific origin for production
 app.use(cors()); // Allow all origins for local development
 app.use(express.json());
+
+// Helper to evaluate health conditions
+function evaluateHealthCondition(currentValue, healthCondition) {
+    const numValue = parseFloat(currentValue);
+    if (isNaN(numValue)) {
+        return false;
+    }
+    
+    // Parse the health condition (e.g., "> 0", "== 1", "< 100", ">= 50")
+    const conditionMatch = healthCondition.match(/^(>=|<=|>|<|==|!=)\s*(.+)$/);
+    if (!conditionMatch) {
+        console.warn(`[Health Check] Invalid health condition format: ${healthCondition}`);
+        return false;
+    }
+    
+    const operator = conditionMatch[1];
+    const threshold = parseFloat(conditionMatch[2]);
+    
+    if (isNaN(threshold)) {
+        console.warn(`[Health Check] Invalid threshold value in condition: ${healthCondition}`);
+        return false;
+    }
+    
+    switch (operator) {
+        case '>': return numValue > threshold;
+        case '>=': return numValue >= threshold;
+        case '<': return numValue < threshold;
+        case '<=': return numValue <= threshold;
+        case '==': return numValue === threshold;
+        case '!=': return numValue !== threshold;
+        default:
+            console.warn(`[Health Check] Unsupported operator in condition: ${healthCondition}`);
+            return false;
+    }
+}
 
 // Helper to fetch from the actual Prometheus instance
 async function queryPrometheus(prometheusQueryPath) {
@@ -167,12 +202,12 @@ app.get('/api/status/:serviceId', async (req, res) => {
 
     if (result && result.length > 0 && result[0].value) {
         const currentValue = result[0].value[1];
-        const isHealthy = currentValue === serviceConfig.healthyValue;
+        const isHealthy = evaluateHealthCondition(currentValue, serviceConfig.healthCondition);
         res.json({ 
             serviceId: serviceId,
             status: isHealthy ? 'operational' : 'outage',
             currentValue: currentValue,
-            healthyValue: serviceConfig.healthyValue,
+            healthCondition: serviceConfig.healthCondition,
             lastChecked: new Date().toISOString() 
         });
     } else {
@@ -247,7 +282,7 @@ app.listen(PROXY_SERVER_PORT, () => {
     if (Object.keys(DETAILED_SERVICES_CONFIG).length > 0) {
         console.log('--- Services Configured in Proxy (from proxy-services-config.yaml) ---');
         for (const id in DETAILED_SERVICES_CONFIG) {
-            console.log(`- ID: ${id}, Name: ${DETAILED_SERVICES_CONFIG[id].displayName}, Metric: ${DETAILED_SERVICES_CONFIG[id].metricName}, Labels: ${DETAILED_SERVICES_CONFIG[id].jobLabel}`);
+            console.log(`- ID: ${id}, Name: ${DETAILED_SERVICES_CONFIG[id].displayName}, Metric: ${DETAILED_SERVICES_CONFIG[id].metricName}, Labels: ${DETAILED_SERVICES_CONFIG[id].jobLabel}, Condition: ${DETAILED_SERVICES_CONFIG[id].healthCondition}`);
         }
     } else {
         console.warn('[Proxy Startup] WARNING: No services were successfully loaded from YAML config. Proxy might not function as expected.');
