@@ -172,11 +172,22 @@ main {
     grid-column: 1 / 2;
 }
 
+.service-icon {
+    margin-right: 12px;
+}
+
+.service-icon img {
+    border-radius: 50%;
+    display: block;
+}
+
 .status-indicator {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    margin-right: 12px;
+    margin-right: 8px;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 .status-indicator.operational {

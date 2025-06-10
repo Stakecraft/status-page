@@ -152,8 +152,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const { serviceId, element, name } = serviceConfig;
         if (!element) return;
         const state = globalServiceStates[serviceId];
-        element.querySelector('.status-indicator').className = `status-indicator ${state.currentStatus}`;
-        element.querySelector('.status-text').textContent = state.currentStatus.charAt(0).toUpperCase() + state.currentStatus.slice(1);
+        
+        // Update status indicator inside the status text
+        const statusIndicator = element.querySelector('.status-indicator');
+        const statusText = element.querySelector('.status-text');
+        if (statusIndicator && statusText) {
+            statusIndicator.className = `status-indicator ${state.currentStatus}`;
+            const statusDisplayText = state.currentStatus.charAt(0).toUpperCase() + state.currentStatus.slice(1);
+            statusText.innerHTML = `<span class="status-indicator ${state.currentStatus}"></span>${statusDisplayText}`;
+        }
+        
         element.querySelector('.uptime-percentage').innerHTML = `${state.overallUptime} <span class="uptime-label">Uptime</span>`;
         generateBars(element.querySelector('.status-bars'), serviceId);
         updateOverallPageStatus();

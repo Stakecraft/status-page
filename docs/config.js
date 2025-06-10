@@ -6,12 +6,17 @@
 const API_BASE_URL = 'https://api.status.stakecraft.com'; // <-- IMPORTANT: Set for local dev. Change for prod.
 
 // SERVICES_CONFIG defines what services the frontend should display.
-// Each 'serviceId' MUST correspond to a 'serviceId' defined in the proxy's .env configuration.
+// Each 'serviceId' MUST correspond to a 'serviceId' defined in the proxy's YAML configuration.
 const SERVICES_CONFIG = [
     {
-        name: 'Solana Mainnet Node',      // Name displayed on the status page UI
-        serviceId: 'solanaNodeStakecraft',  // ID to fetch data from the proxy (must match proxy .env config)
-        element: null                     // Populated by script.js
+        name: 'Stakecraft.com',
+        serviceId: 'stakecraftCom',
+        element: null
+    },
+    {
+        name: 'Solana Mainnet Node',
+        serviceId: 'solanaNodeStakecraft',
+        element: null
     },
     {
         name: 'Walrus Mainnet Node',
@@ -19,19 +24,110 @@ const SERVICES_CONFIG = [
         element: null
     },
     {
-        name: 'Stakecraft.com',
-        serviceId: 'stakecraftCom', // Must match the ID in your proxy YAML
+        name: 'Kava Mainnet Node',
+        serviceId: 'kavaNodeStakecraft',
         element: null
     },
-    // To add another service to the UI:
-    // 1. Ensure its full details are in the proxy's .env PROXY_DETAILED_SERVICES_JSON.
-    // 2. Add its HTML structure in index.html.
-    // 3. Add its entry here:
-    // {
-    //     name: 'My Awesome API',        // UI Display Name
-    //     serviceId: 'myAwesomeApi',    // ID (must match proxy .env config for 'myAwesomeApi')
-    //     element: null
-    // }
+    {
+        name: 'Koii Mainnet Node',
+        serviceId: 'koiiNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Supra Oracles Mainnet Node',
+        serviceId: 'supraNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Band Protocol Mainnet Node',
+        serviceId: 'bandNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Moonriver Network Collator',
+        serviceId: 'moonriverNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Q Protocol Mainnet Node',
+        serviceId: 'qprotocolNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'The Graph Indexer',
+        serviceId: 'thegraphNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Polygon Network Mainnet Node',
+        serviceId: 'polygonNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Altair Network Collator',
+        serviceId: 'altairNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Centrifuge Network Collator',
+        serviceId: 'centrifugeNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Ki Foundation Mainnet Node',
+        serviceId: 'kiNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Agoric Mainnet Node',
+        serviceId: 'agoricNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Zetachain Mainnet Node',
+        serviceId: 'zetachainNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Covalent Mainnet Node',
+        serviceId: 'covalentNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Stafi Mainnet Node',
+        serviceId: 'stafiNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'SubQuery Mainnet Node',
+        serviceId: 'subqueryNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Stargaze Mainnet Node',
+        serviceId: 'stargazeNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Bitsong Mainnet Node',
+        serviceId: 'bitsongNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'BitsCrunch Mainnet Node',
+        serviceId: 'bitscrunchNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'RedBelly Mainnet Node',
+        serviceId: 'redbellyNodeStakecraft',
+        element: null
+    },
+    {
+        name: 'Near Protocol Mainnet Node',
+        serviceId: 'nearNodeStakecraft',
+        element: null
+    }
 ];
 
 // Note: script.js requires API_BASE_URL and SERVICES_CONFIG to be available globally
