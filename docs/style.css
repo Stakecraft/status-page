@@ -98,6 +98,34 @@ main {
     text-decoration: underline;
 }
 
+.outage-list {
+    margin-top: 16px;
+    padding: 16px;
+    background-color: #fee2e2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    text-align: left;
+}
+
+.outage-list h3 {
+    margin: 0 0 12px 0;
+    color: #dc2626;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.outage-list ul {
+    margin: 0;
+    padding-left: 20px;
+    list-style-type: disc;
+}
+
+.outage-list li {
+    color: #991b1b;
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
 .live-status h2 {
     font-size: 24px;
     margin-bottom: 20px;

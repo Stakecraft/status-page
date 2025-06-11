@@ -21,11 +21,15 @@
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <h1>Operational</h1>
+            <div id="outage-list" class="outage-list" style="display: none;">
+                <h3>Affected Services:</h3>
+                <ul id="outage-services"></ul>
+            </div>
             <p><a href="incident-history.html">Incident History &rarr;</a></p>
         </section>
 
         <section class="live-status">
-            <h2>Live Status</h2>
+            <h2>Live Status <span id="node-counter">(25)</span></h2>
             <div class="tabs">
                 <button class="tab-button active" data-tab="uptime">Uptime</button>
             </div>

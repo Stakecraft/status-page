@@ -185,15 +185,32 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateOverallPageStatus() {
-        let isAnyOutage = SERVICES_CONFIG.some(cfg => globalServiceStates[cfg.serviceId].currentStatus === 'outage');
+        const outageServices = SERVICES_CONFIG.filter(cfg => globalServiceStates[cfg.serviceId].currentStatus === 'outage');
+        const isAnyOutage = outageServices.length > 0;
+        
+        const outageList = document.getElementById('outage-list');
+        const outageServicesList = document.getElementById('outage-services');
+        
         if (isAnyOutage) {
             overallStatusIcon.className = 'status-icon outage';
             overallStatusH1.textContent = 'Major Outage';
             if (overallStatusIcon.querySelector('svg path')) overallStatusIcon.querySelector('svg path').setAttribute('d', 'M18 6L6 18M6 6l12 12');
+            
+            // Show outage list and populate with affected services
+            outageServicesList.innerHTML = '';
+            outageServices.forEach(service => {
+                const listItem = document.createElement('li');
+                listItem.textContent = service.name;
+                outageServicesList.appendChild(listItem);
+            });
+            outageList.style.display = 'block';
         } else {
             overallStatusIcon.className = 'status-icon operational';
             overallStatusH1.textContent = 'All Systems Operational';
             if (overallStatusIcon.querySelector('svg path')) overallStatusIcon.querySelector('svg path').setAttribute('d', 'M20 6L9 17L4 12');
+            
+            // Hide outage list when no outages
+            outageList.style.display = 'none';
         }
     }
 
@@ -322,8 +339,17 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Update the node counter in the Live Status heading
+    function updateNodeCounter() {
+        const nodeCounter = document.getElementById('node-counter');
+        if (nodeCounter) {
+            nodeCounter.textContent = `(${SERVICES_CONFIG.length})`;
+        }
+    }
+
     // Initial data fetch for all services
     async function initializeStatusPage() {
+        updateNodeCounter(); // Update the counter first
         for (const serviceConfig of SERVICES_CONFIG) {
             if (serviceConfig.element) { // Only process if element was found
                 await updateServiceData(serviceConfig);

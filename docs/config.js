@@ -127,6 +127,11 @@ const SERVICES_CONFIG = [
         name: 'Near Protocol Mainnet Node',
         serviceId: 'nearNodeStakecraft',
         element: null
+    },
+    {
+        name: 'Space&Time Mainnet Node',
+        serviceId: 'spacetimeNodeStakecraft',
+        element: null
     }
 ];
 
