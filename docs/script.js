@@ -141,7 +141,24 @@ document.addEventListener('DOMContentLoaded', function() {
         globalServiceStates[serviceConfig.serviceId].historicalData = filledData.slice(-numExpectedPoints);
 
         if (actualDataPointsCount > 0) {
-            const overallUptimePercentage = (totalUptimeSum / actualDataPointsCount) * 100;
+            let overallUptimePercentage;
+            const avgValue = totalUptimeSum / actualDataPointsCount;
+            
+            // Handle different metric types intelligently
+            if (avgValue <= 1.0) {
+                // Metric is a ratio (0-1), convert to percentage
+                overallUptimePercentage = avgValue * 100;
+            } else if (avgValue <= 100) {
+                // Metric is already a percentage (0-100)
+                overallUptimePercentage = avgValue;
+            } else {
+                // Metric is a large number (block height, timestamp, etc.)
+                // For health metrics > 100, we assume if it's > 0 then it's "up"
+                // Calculate uptime as percentage of non-zero values
+                const uptimePointsCount = processedData.filter(p => p.hasData && p.uptimeRatio > 0).length;
+                overallUptimePercentage = (uptimePointsCount / actualDataPointsCount) * 100;
+            }
+            
             globalServiceStates[serviceConfig.serviceId].overallUptime = `${overallUptimePercentage.toFixed(3)}%`;
         } else {
             globalServiceStates[serviceConfig.serviceId].overallUptime = 'N/A';
@@ -193,10 +210,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!dataPoint.hasData) {
                     bar.classList.add('no-data');
                 } else {
-                    const downtimeMinutesForColor = Math.round((1 - dataPoint.uptimeRatio) * 24 * 60);
+                    // Handle different metric scales
+                    let normalizedRatio;
+                    if (dataPoint.uptimeRatio <= 1.0) {
+                        // Already a ratio (0-1)
+                        normalizedRatio = dataPoint.uptimeRatio;
+                    } else if (dataPoint.uptimeRatio <= 100) {
+                        // Already a percentage (0-100), convert to ratio
+                        normalizedRatio = dataPoint.uptimeRatio / 100;
+                    } else {
+                        // Large number - if > 0 then operational
+                        normalizedRatio = dataPoint.uptimeRatio > 0 ? 1.0 : 0.0;
+                    }
+                    
+                    const downtimeMinutesForColor = Math.round((1 - normalizedRatio) * 24 * 60);
                     if (downtimeMinutesForColor < 5) {
                         bar.classList.add('operational');
-                    } else if (dataPoint.uptimeRatio >= 0.9) {
+                    } else if (normalizedRatio >= 0.9) {
                         bar.classList.add('degraded');
                     } else {
                         bar.classList.add('outage');
@@ -219,8 +249,27 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             const date = new Date(dataPoint.timestamp * 1000);
             tooltipContent.date.textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            tooltipContent.uptime.textContent = `Uptime: ${(dataPoint.uptimeRatio * 100).toFixed(1)}%`;
-            const downtimeMinutes = Math.round((1 - dataPoint.uptimeRatio) * 24 * 60);
+            
+            // Handle different metric scales for tooltip display
+            let uptimePercentage;
+            let normalizedRatio;
+            
+            if (dataPoint.uptimeRatio <= 1.0) {
+                // Already a ratio (0-1)
+                normalizedRatio = dataPoint.uptimeRatio;
+                uptimePercentage = dataPoint.uptimeRatio * 100;
+            } else if (dataPoint.uptimeRatio <= 100) {
+                // Already a percentage (0-100)
+                uptimePercentage = dataPoint.uptimeRatio;
+                normalizedRatio = dataPoint.uptimeRatio / 100;
+            } else {
+                // Large number - if > 0 then operational (100%), else 0%
+                normalizedRatio = dataPoint.uptimeRatio > 0 ? 1.0 : 0.0;
+                uptimePercentage = normalizedRatio * 100;
+            }
+            
+            tooltipContent.uptime.textContent = `${uptimePercentage.toFixed(1)}%`;
+            const downtimeMinutes = Math.round((1 - normalizedRatio) * 24 * 60);
             if (downtimeMinutes < 5) {
                 tooltipContent.downtime.style.display = 'none';
             } else {
