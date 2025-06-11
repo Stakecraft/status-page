@@ -148,12 +148,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (avgValue <= 1.0) {
                 // Metric is a ratio (0-1), convert to percentage
                 overallUptimePercentage = avgValue * 100;
-            } else if (avgValue <= 100) {
-                // Metric is already a percentage (0-100)
+            } else if (avgValue > 90 && avgValue <= 100) {
+                // Likely already a percentage (90-100% range is common for uptime)
                 overallUptimePercentage = avgValue;
             } else {
-                // Metric is a large number (block height, timestamp, etc.)
-                // For health metrics > 100, we assume if it's > 0 then it's "up"
+                // Any other value (small integers, large numbers, etc.)
+                // For health metrics, we treat any positive value as "operational"
                 // Calculate uptime as percentage of non-zero values
                 const uptimePointsCount = processedData.filter(p => p.hasData && p.uptimeRatio > 0).length;
                 overallUptimePercentage = (uptimePointsCount / actualDataPointsCount) * 100;
@@ -232,11 +232,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (dataPoint.uptimeRatio <= 1.0) {
                         // Already a ratio (0-1)
                         normalizedRatio = dataPoint.uptimeRatio;
-                    } else if (dataPoint.uptimeRatio <= 100) {
-                        // Already a percentage (0-100), convert to ratio
+                    } else if (dataPoint.uptimeRatio > 90 && dataPoint.uptimeRatio <= 100) {
+                        // Likely already a percentage (90-100% range), convert to ratio
                         normalizedRatio = dataPoint.uptimeRatio / 100;
                     } else {
-                        // Large number - if > 0 then operational
+                        // Any other value - if > 0 then operational
                         normalizedRatio = dataPoint.uptimeRatio > 0 ? 1.0 : 0.0;
                     }
                     
@@ -275,12 +275,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Already a ratio (0-1)
                 normalizedRatio = dataPoint.uptimeRatio;
                 uptimePercentage = dataPoint.uptimeRatio * 100;
-            } else if (dataPoint.uptimeRatio <= 100) {
-                // Already a percentage (0-100)
+            } else if (dataPoint.uptimeRatio > 90 && dataPoint.uptimeRatio <= 100) {
+                // Likely already a percentage (90-100% range)
                 uptimePercentage = dataPoint.uptimeRatio;
                 normalizedRatio = dataPoint.uptimeRatio / 100;
             } else {
-                // Large number - if > 0 then operational (100%), else 0%
+                // Any other value - if > 0 then operational (100%), else 0%
                 normalizedRatio = dataPoint.uptimeRatio > 0 ? 1.0 : 0.0;
                 uptimePercentage = normalizedRatio * 100;
             }
