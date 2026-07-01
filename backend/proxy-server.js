@@ -2,7 +2,6 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const fetch = require('node-fetch');
 const yaml = require('js-yaml');
 const fs = require('fs');
 const path = require('path');
@@ -21,6 +20,11 @@ const {
 } = require('./lib/health');
 
 const app = express();
+// Trust exactly one proxy hop (the bundled nginx). req.ip then comes from the
+// X-Forwarded-For entry nginx appends, which the rate limiter keys on. Do not
+// publish the app port directly — a direct client could spoof X-Forwarded-For
+// and rotate rate-limit buckets at will.
+app.set('trust proxy', 1);
 const PROXY_SERVER_PORT = process.env.PROXY_PORT || 3000;
 const ACTUAL_PROMETHEUS_URL = process.env.ACTUAL_PROMETHEUS_URL || 'http://127.0.0.1:9090';
 const API_V2_ENABLED = process.env.API_V2_ENABLED !== 'false';

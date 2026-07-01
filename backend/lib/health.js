@@ -206,6 +206,10 @@ function getRangeDays(range) {
     }
 }
 
+function isValidHistoryRange(range) {
+    return range === '7d' || range === '30d' || range === '90d';
+}
+
 function getRangeStartDate(range) {
     const days = getRangeDays(range);
     const now = new Date();
@@ -298,6 +302,7 @@ module.exports = {
     computeOverallUptimePercent,
     getHealthCondition,
     getRangeDays,
+    isValidHistoryRange,
     getRangeStartDate,
     alignHistoricalPoints,
     normalizeUptimeRatio,

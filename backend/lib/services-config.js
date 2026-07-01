@@ -108,8 +108,27 @@ function groupServicesByCategory(servicesConfig) {
         }));
 }
 
+function toPublicService(service) {
+    return {
+        id: service.id,
+        name: service.name,
+        category: service.category,
+        icon: service.icon || null,
+    };
+}
+
+function groupPublicServicesByCategory(servicesConfig) {
+    return groupServicesByCategory(servicesConfig).map((category) => ({
+        id: category.id,
+        label: category.label,
+        services: category.services.map(toPublicService),
+    }));
+}
+
 module.exports = {
     loadServicesConfig,
     groupServicesByCategory,
+    groupPublicServicesByCategory,
+    toPublicService,
     getCategoryLabel,
 };
