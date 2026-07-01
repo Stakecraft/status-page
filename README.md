@@ -2,6 +2,61 @@
 
 This project implements a status page that displays the current and historical uptime for various monitored services, and a separate page to display incident history fetched from GitHub Issues. The frontend is designed to be hosted on GitHub Pages (or another static hosting provider), and the backend is a Node.js proxy server designed to be run with Docker and an Nginx reverse proxy.
 
+> **v2 Implementation:** Branch `proposal/status-page-v2-grafana` implements the Grafana-centric architecture. See [docs/proposals/STATUS_PAGE_V2.md](docs/proposals/STATUS_PAGE_V2.md) for the design doc.
+
+## API v2 Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/rss` | RSS feed (status summary + incidents) |
+| `GET` | `/api/v2/config` | Service list grouped by category |
+| `GET` | `/api/v2/status` | Batch status for all services |
+| `GET` | `/api/v2/history?range=7d\|30d\|90d` | Batch history for all services |
+| `GET` | `/api/v2/history/:id?range=...` | History for a single service |
+
+Legacy v1 endpoints (`/api/status/:serviceId`, `/api/history/:serviceId`) remain available when `proxy-services-config.yaml` is present.
+
+### v2 Configuration
+
+1. Copy `config/services.yaml.example` to `config/services.yaml`
+2. Set each service's `health.prometheus_job` to match your Prometheus job labels
+3. Set `API_V2_ENABLED=true` in `backend/.env`
+4. Once recording rules are deployed, set `USE_RECORDING_RULES=true`
+
+The frontend uses v2 by default (`USE_API_V2 = true` in `docs/config.js`).
+
+## Local Development (Docker Compose)
+
+Run the full stack (API + frontend) with one command:
+
+```bash
+./scripts/dev-up.sh
+```
+
+Or manually:
+
+```bash
+docker compose up --build -d
+./scripts/test-api.sh
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:8080 |
+| API | http://localhost:3000 |
+
+Useful commands:
+
+```bash
+docker compose logs -f          # tail logs
+docker compose down             # stop
+docker compose up --build -d    # rebuild after code changes
+```
+
+**Config:** `config/services.yaml` is mounted into the API container. Copy from `config/services.yaml.example` if missing. Map `health.query` values to your Prometheus metrics (see legacy `backend/proxy-services-config.yaml` for reference).
+
+**Production:** use `backend/docker-compose.yml` for the Nginx + SSL deployment behind `api.status.stakecraft.com`.
+
 ## Project Structure
 
 ```

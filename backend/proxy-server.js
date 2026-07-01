@@ -1,57 +1,110 @@
-require('dotenv').config(); // Load environment variables from .env file
+require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
-const yaml = require('js-yaml'); // For parsing YAML
-const fs = require('fs');         // For reading files
+const yaml = require('js-yaml');
+const fs = require('fs');
 const path = require('path');
 
+const { loadServicesConfig } = require('./lib/services-config');
+const { createPrometheusClient } = require('./lib/prometheus-client');
+const { createV2Router } = require('./lib/v2-routes');
+const { fetchGitHubIncidents } = require('./lib/incidents');
+const { buildRssFeed } = require('./lib/rss');
+const {
+    buildStatusQuery,
+    computeOverallStatus,
+    getHealthCondition,
+    parseInstantValue,
+    valueToStatus,
+} = require('./lib/health');
+
 const app = express();
-const PROXY_SERVER_PORT = process.env.PROXY_PORT || 3000; // Can still use .env for this if you like
-const ACTUAL_PROMETHEUS_URL = process.env.ACTUAL_PROMETHEUS_URL || 'http://127.0.0.1:9090'; // Or this
+const PROXY_SERVER_PORT = process.env.PROXY_PORT || 3000;
+const ACTUAL_PROMETHEUS_URL = process.env.ACTUAL_PROMETHEUS_URL || 'http://127.0.0.1:9090';
+const API_V2_ENABLED = process.env.API_V2_ENABLED !== 'false';
+const USE_RECORDING_RULES = process.env.USE_RECORDING_RULES === 'true';
+const SERVICES_CONFIG_PATH = process.env.SERVICES_CONFIG_PATH;
 
 // GitHub API Configuration
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER;
 const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME;
-const GITHUB_INCIDENT_LABEL = process.env.GITHUB_INCIDENT_LABEL || 'incident'; // Default to 'incident'
+const GITHUB_INCIDENT_LABEL = process.env.GITHUB_INCIDENT_LABEL || 'incident';
+const STATUS_PAGE_URL = process.env.STATUS_PAGE_URL || 'https://status.stakecraft.com';
 
-// CORS configuration
 const corsOptions = {
-  origin: 'https://status.stakecraft.com'
+    origin: process.env.CORS_ORIGIN || 'https://status.stakecraft.com',
 };
 
-// --- Detailed Service Configuration (Loaded from YAML file) ---
-let DETAILED_SERVICES_CONFIG = {}; // This will be populated from YAML
-const CONFIG_FILE_PATH = path.join(__dirname, 'proxy-services-config.yaml');
+// --- v1 Service Configuration (legacy YAML) ---
+let DETAILED_SERVICES_CONFIG = {};
+const LEGACY_CONFIG_FILE_PATH = path.join(__dirname, 'proxy-services-config.yaml');
 
 try {
-    if (fs.existsSync(CONFIG_FILE_PATH)) {
-        const fileContents = fs.readFileSync(CONFIG_FILE_PATH, 'utf8');
+    if (fs.existsSync(LEGACY_CONFIG_FILE_PATH)) {
+        const fileContents = fs.readFileSync(LEGACY_CONFIG_FILE_PATH, 'utf8');
         const yamlConfig = yaml.load(fileContents);
 
         if (yamlConfig && Array.isArray(yamlConfig.services)) {
-            yamlConfig.services.forEach(service => {
+            yamlConfig.services.forEach((service) => {
                 if (service.serviceId && service.metricName && service.jobLabel && service.healthCondition && service.displayName) {
                     DETAILED_SERVICES_CONFIG[service.serviceId] = service;
                 } else {
-                    console.warn('[Proxy Startup] Invalid service entry in YAML config, missing required fields:', service);
+                    console.warn('[Proxy Startup] Invalid legacy service entry:', service);
                 }
             });
-        } else {
-            console.error('[Proxy Startup] CRITICAL: YAML config file is not structured correctly. Expected a `services` array.');
         }
-    } else {
-        console.error(`[Proxy Startup] CRITICAL: Configuration file not found at ${CONFIG_FILE_PATH}. No services will be loaded.`);
     }
 } catch (e) {
-    console.error('[Proxy Startup] CRITICAL: Error loading or parsing YAML configuration file:', e);
+    console.error('[Proxy Startup] Error loading legacy YAML config:', e);
 }
 
-// app.use(cors(corsOptions)); // Use specific origin for production
-app.use(cors()); // Allow all origins for local development
+// --- v2 Service Configuration ---
+const servicesConfig = loadServicesConfig(SERVICES_CONFIG_PATH);
+const prometheus = createPrometheusClient(ACTUAL_PROMETHEUS_URL);
+
+if (process.env.NODE_ENV === 'production') {
+    app.use(cors(corsOptions));
+} else {
+    app.use(cors());
+}
 app.use(express.json());
+
+// --- Health Check ---
+app.get('/api/health', async (req, res) => {
+    const checks = {
+        prometheus: 'unknown',
+        servicesLoaded: servicesConfig.services.length,
+        legacyServicesLoaded: Object.keys(DETAILED_SERVICES_CONFIG).length,
+        apiV2Enabled: API_V2_ENABLED,
+        useRecordingRules: USE_RECORDING_RULES,
+    };
+
+    try {
+        const result = await prometheus.query('up');
+        checks.prometheus = result ? 'ok' : 'error';
+    } catch {
+        checks.prometheus = 'error';
+    }
+
+    const healthy = checks.prometheus === 'ok' && checks.servicesLoaded > 0;
+    res.status(healthy ? 200 : 503).json({
+        status: healthy ? 'ok' : 'degraded',
+        lastChecked: new Date().toISOString(),
+        checks,
+    });
+});
+
+// --- v2 API ---
+if (API_V2_ENABLED) {
+    app.use('/api/v2', createV2Router({
+        servicesConfig,
+        prometheus,
+        useRecordingRules: USE_RECORDING_RULES,
+    }));
+}
 
 // Helper to evaluate health conditions
 function evaluateHealthCondition(currentValue, healthCondition) {
@@ -110,6 +163,49 @@ async function queryPrometheus(prometheusQueryPath) {
     }
 }
 
+async function getGitHubIncidents() {
+    return fetchGitHubIncidents({
+        token: GITHUB_TOKEN,
+        owner: GITHUB_REPO_OWNER,
+        repo: GITHUB_REPO_NAME,
+        label: GITHUB_INCIDENT_LABEL,
+        perPage: 100,
+    });
+}
+
+async function getV2ServiceStatuses() {
+    const summary = { operational: 0, degraded: 0, outage: 0, unknown: 0 };
+    const services = [];
+
+    await Promise.all(servicesConfig.services.map(async (service) => {
+        const condition = getHealthCondition(service);
+        const statusQuery = buildStatusQuery(service, USE_RECORDING_RULES);
+        let currentValue = null;
+
+        if (statusQuery) {
+            const statusResult = await prometheus.query(statusQuery);
+            currentValue = parseInstantValue(
+                statusResult,
+                USE_RECORDING_RULES ? { service: service.id } : null,
+            );
+        }
+
+        const status = valueToStatus(currentValue, condition);
+        summary[status] += 1;
+        services.push({
+            id: service.id,
+            name: service.name,
+            status,
+        });
+    }));
+
+    return {
+        overall: computeOverallStatus(summary),
+        summary,
+        services,
+    };
+}
+
 // --- GitHub Incidents Endpoint ---
 app.get('/api/github-incidents', async (req, res) => {
     if (!GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME) {
@@ -117,68 +213,39 @@ app.get('/api/github-incidents', async (req, res) => {
         return res.status(500).json({ error: 'GitHub integration not configured on server.' });
     }
 
-    const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/issues`;
-    const params = new URLSearchParams({
-        labels: GITHUB_INCIDENT_LABEL,
-        state: 'all', // Fetch both open and closed issues
-        sort: 'created',
-        direction: 'desc', // Most recent first
-        per_page: 10 // Fetch latest 10 incidents, adjust as needed
-    });
-
     try {
-        console.log(`[GitHub Incidents] Fetching incidents from ${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME} with label ${GITHUB_INCIDENT_LABEL}`);
-        const response = await fetch(`${GITHUB_API_URL}?${params.toString()}`, {
-            headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
-
-        if (!response.ok) {
-            const errorData = await response.text();
-            console.error(`[GitHub Incidents] GitHub API request failed: ${response.status}`, errorData);
-            throw new Error(`GitHub API request failed: ${response.status}`);
-        }
-
-        const issues = await response.json();
-        
-        const incidents = issues.map(issue => {
-            let severity = null;
-            const severityLabel = issue.labels.find(label => label.name.startsWith('severity:') || label.name.startsWith('sev:'));
-            if (severityLabel) {
-                severity = severityLabel.name.split(':')[1]; // Get value after ':'
-            }
-
-            let affectedServices = [];
-            issue.labels.forEach(label => {
-                if (label.name.startsWith('service:')) {
-                    affectedServices.push(label.name.split(':')[1]);
-                }
-            });
-
-            return {
-                id: issue.id,
-                title: issue.title,
-                url: issue.html_url,      
-                number: issue.number,
-                createdAt: issue.created_at, 
-                updatedAt: issue.updated_at, 
-                closedAt: issue.closed_at,   
-                state: issue.state, 
-                labels: issue.labels.map(label => label.name),
-                body: issue.body, 
-                statusText: issue.state === 'closed' ? 'Resolved' : (issue.labels.find(l => l.name.startsWith('status:'))?.name.split(':')[1] || 'Open'),
-                severity: severity, // Add severity
-                affectedServices: affectedServices // Add affected services
-            };
-        });
-
+        const incidents = await getGitHubIncidents();
         res.json(incidents);
-
     } catch (error) {
         console.error('[GitHub Incidents] Error fetching incidents:', error);
         res.status(500).json({ error: 'Failed to fetch incidents from GitHub.' });
+    }
+});
+
+app.get('/api/rss', async (req, res) => {
+    try {
+        const [statusPayload, incidents] = await Promise.all([
+            getV2ServiceStatuses(),
+            getGitHubIncidents().catch(() => []),
+        ]);
+
+        const feedUrl = `${req.protocol}://${req.get('host')}/api/rss`;
+        const xml = buildRssFeed({
+            siteUrl: STATUS_PAGE_URL,
+            feedUrl,
+            title: 'Stakecraft Status',
+            description: 'Service status and incident updates for Stakecraft infrastructure.',
+            overallStatus: statusPayload.overall,
+            services: statusPayload.services,
+            incidents,
+        });
+
+        res.set('Content-Type', 'application/rss+xml; charset=utf-8');
+        res.set('Cache-Control', 'public, max-age=300');
+        res.send(xml);
+    } catch (error) {
+        console.error('[RSS] Error building feed:', error);
+        res.status(500).send('Failed to build RSS feed');
     }
 });
 
@@ -272,22 +339,22 @@ app.get('/api/history/:serviceId', async (req, res) => {
 });
 
 app.listen(PROXY_SERVER_PORT, () => {
-    console.log(`Local Prometheus Proxy server (v4 - YAML config) running on http://localhost:${PROXY_SERVER_PORT}`);
-    console.log(`Proxying to Prometheus at: ${ACTUAL_PROMETHEUS_URL}`);
+    console.log(`Status Page API running on http://localhost:${PROXY_SERVER_PORT}`);
+    console.log(`Prometheus: ${ACTUAL_PROMETHEUS_URL}`);
+    console.log(`API v2: ${API_V2_ENABLED ? 'enabled' : 'disabled'} | Recording rules: ${USE_RECORDING_RULES ? 'yes' : 'no (direct queries)'}`);
+    console.log(`Services config: ${servicesConfig.path} (${servicesConfig.services.length} services)`);
+
     if (GITHUB_TOKEN && GITHUB_REPO_OWNER && GITHUB_REPO_NAME) {
-        console.log(`GitHub Incident Integration: Enabled for ${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}, label: '${GITHUB_INCIDENT_LABEL}'`);
+        console.log(`GitHub incidents: ${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME} [${GITHUB_INCIDENT_LABEL}]`);
     } else {
-        console.warn('[Proxy Startup] GitHub Incident Integration: DISABLED due to missing GITHUB_TOKEN, GITHUB_REPO_OWNER, or GITHUB_REPO_NAME.');
+        console.warn('[Startup] GitHub incidents: disabled (missing token/repo config)');
     }
+
     if (Object.keys(DETAILED_SERVICES_CONFIG).length > 0) {
-        console.log('--- Services Configured in Proxy (from proxy-services-config.yaml) ---');
-        for (const id in DETAILED_SERVICES_CONFIG) {
-            console.log(`- ID: ${id}, Name: ${DETAILED_SERVICES_CONFIG[id].displayName}, Metric: ${DETAILED_SERVICES_CONFIG[id].metricName}, Labels: ${DETAILED_SERVICES_CONFIG[id].jobLabel}, Condition: ${DETAILED_SERVICES_CONFIG[id].healthCondition}`);
-        }
+        console.log(`Legacy v1 API: ${Object.keys(DETAILED_SERVICES_CONFIG).length} services from proxy-services-config.yaml`);
     } else {
-        console.warn('[Proxy Startup] WARNING: No services were successfully loaded from YAML config. Proxy might not function as expected.');
+        console.warn('[Startup] Legacy v1 API: no services loaded (proxy-services-config.yaml missing)');
     }
-    console.log('----------------------------------------------------------');
 });
 
 process.on('SIGINT', () => { console.log("\nGracefully shutting down from SIGINT (Ctrl-C)"); process.exit(0); }); 

@@ -1,315 +1,521 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // const PROMETHEUS_URL = 'http://localhost:3000'; // Defined in config.js
-    // const SERVICES_CONFIG = [ ... ]; // Defined in config.js
-
-    // Ensure SERVICES_CONFIG is available from config.js
-    if (typeof SERVICES_CONFIG === 'undefined' || typeof API_BASE_URL === 'undefined') {
-        console.error("CRITICAL: config.js is not loaded or API_BASE_URL/SERVICES_CONFIG are not defined.");
-        const mainContent = document.querySelector('main');
-        if (mainContent) {
-            mainContent.innerHTML = '<h1 style="color: red; text-align: center;">Configuration Error: Please check console.</h1>';
-        }
-        return; // Stop execution if config is missing
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof API_BASE_URL === 'undefined') {
+        showFatalError('API_BASE_URL is not defined in config.js');
+        return;
     }
 
-    const serviceStatuses = document.querySelectorAll('.service-status');
+    const useV2 = typeof USE_API_V2 !== 'undefined' ? USE_API_V2 : true;
+    const pollInterval = typeof STATUS_POLL_INTERVAL_SECONDS !== 'undefined'
+        ? STATUS_POLL_INTERVAL_SECONDS
+        : 60;
+
+    const statusListEl = document.getElementById('status-list');
     const tooltip = document.getElementById('status-tooltip');
     const tooltipContent = {
         date: tooltip.querySelector('.tooltip-date'),
         uptime: tooltip.querySelector('.tooltip-uptime strong'),
         downtime: tooltip.querySelector('.tooltip-downtime'),
+        incidents: tooltip.querySelector('.tooltip-incidents'),
     };
     const tooltipArrow = tooltip.querySelector('.tooltip-arrow');
     const overallStatusIcon = document.querySelector('.overall-status .status-icon');
     const overallStatusH1 = document.querySelector('.overall-status h1');
+    const outageList = document.getElementById('outage-list');
+    const outageServicesList = document.getElementById('outage-services');
+    const nodeCounter = document.getElementById('node-counter');
+    const lastUpdatedEl = document.getElementById('last-updated');
 
     let globalServiceStates = {};
+    let categoriesConfig = [];
+    let pollTimer = null;
+    let activeRange = '30d';
+    let activeTab = 'nodes';
+    let lastStatusPayload = null;
+    let incidentsCache = [];
 
-    SERVICES_CONFIG.forEach(config => {
-        config.element = Array.from(serviceStatuses).find(el => el.querySelector('h3').textContent.startsWith(config.name));
-        if (!config.element) {
-            console.warn(`HTML element for service '${config.name}' (ID: ${config.serviceId}) not found. Check H3 text. Service will be skipped.`);
+    const themeToggle = document.getElementById('theme-toggle');
+    const rssFeedLink = document.getElementById('rss-feed-link');
+    const rssHeadLink = document.getElementById('rss-link');
+
+    function initTheme() {
+        if (document.documentElement.dataset.theme) {
+            return;
         }
-        globalServiceStates[config.serviceId] = { currentStatus: 'unknown', historicalData: [], overallUptime: 'N/A' };
-    });
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = prefersDark ? 'dark' : 'light';
+    }
+
+    function toggleTheme() {
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        localStorage.setItem('stakecraft-theme', next);
+    }
+
+    function initRssLink() {
+        const rssUrl = typeof RSS_FEED_URL !== 'undefined' ? RSS_FEED_URL : `${API_BASE_URL}/api/rss`;
+        if (rssFeedLink) {
+            rssFeedLink.href = rssUrl;
+        }
+        if (rssHeadLink) {
+            rssHeadLink.href = rssUrl;
+        }
+    }
+
+    function incidentAffectsService(incident, serviceId) {
+        if (!incident || !serviceId) {
+            return false;
+        }
+        if (incident.affectedServices?.includes(serviceId)) {
+            return true;
+        }
+        return incident.labels?.includes(`service:${serviceId}`) ?? false;
+    }
+
+    function incidentOverlapsDay(incident, dayTimestampSec) {
+        if (!incident?.createdAt) {
+            return false;
+        }
+        const dayStart = dayTimestampSec * 1000;
+        const dayEnd = dayStart + 86400000;
+        const incidentStart = new Date(incident.createdAt).getTime();
+        const incidentEnd = incident.closedAt
+            ? new Date(incident.closedAt).getTime()
+            : Date.now();
+        return incidentStart < dayEnd && incidentEnd >= dayStart;
+    }
+
+    function enrichHistoryWithIncidents(historicalData, serviceId) {
+        return (historicalData || []).map((point) => ({
+            ...point,
+            incidents: incidentsCache
+                .filter(
+                    (incident) => incidentAffectsService(incident, serviceId)
+                        && incidentOverlapsDay(incident, point.timestamp),
+                )
+                .map((incident) => ({
+                    title: incident.title,
+                    url: incident.url,
+                    number: incident.number,
+                    statusText: incident.statusText,
+                })),
+        }));
+    }
+
+    async function loadIncidents() {
+        const incidents = await fetchFromProxy('/api/github-incidents');
+        if (Array.isArray(incidents)) {
+            incidentsCache = incidents;
+        }
+    }
+
+    function getRangeDayCount(range) {
+        switch (range) {
+            case '7d': return 7;
+            case '90d': return 90;
+            case '30d':
+            default: return 30;
+        }
+    }
+
+    const TAB_CATEGORIES = {
+        nodes: ['node', 'collator'],
+        services: ['website', 'indexer', 'oracle'],
+    };
+
+    function getTabForCategory(category) {
+        if (TAB_CATEGORIES.nodes.includes(category)) {
+            return 'nodes';
+        }
+        return 'services';
+    }
+
+    function updateTabCounter() {
+        if (!nodeCounter) {
+            return;
+        }
+        const count = flattenCategories(categoriesConfig).filter(
+            (service) => getTabForCategory(service.category) === activeTab,
+        ).length;
+        nodeCounter.textContent = `(${count})`;
+    }
+
+    function switchTab(tab) {
+        activeTab = tab;
+        document.querySelectorAll('.tab-button').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        document.querySelectorAll('.tab-panel').forEach((panel) => {
+            panel.classList.toggle('active', panel.dataset.tabPanel === tab);
+        });
+        updateTabCounter();
+    }
+
+    function showFatalError(message) {
+        console.error(message);
+        const mainContent = document.querySelector('main');
+        if (mainContent) {
+            mainContent.innerHTML = `<h1 style="color: red; text-align: center;">Configuration Error: ${message}</h1>`;
+        }
+    }
 
     async function fetchFromProxy(endpointPath) {
         const url = `${API_BASE_URL}${endpointPath}`;
-        // console.log(`[fetchFromProxy] Attempting to fetch URL: ${url}`);
         try {
             const response = await fetch(url);
             if (!response.ok) {
-                console.error(`Proxy request failed: ${response.status} for URL: ${url}`);
-                throw new Error(`Proxy request failed: ${response.status}`);
+                throw new Error(`Request failed: ${response.status}`);
             }
-            const data = await response.json();
-            // Assuming proxy always returns success:true if HTTP 200, or handles errors by non-200 codes
-            return data;
+            return await response.json();
         } catch (error) {
-            console.error('Error fetching from proxy:', error, `URL: ${url}`);
+            console.error('Error fetching from API:', error, url);
             return null;
         }
     }
 
-    async function updateServiceData(serviceConfig) {
-        if (!serviceConfig || !serviceConfig.element) return;
-
-        const statusData = await fetchFromProxy(`/api/status/${serviceConfig.serviceId}`);
-        // console.log(`[${serviceConfig.name}] Raw current status data from proxy:`, JSON.stringify(statusData));
-
-        if (statusData && statusData.status) {
-            globalServiceStates[serviceConfig.serviceId].currentStatus = statusData.status;
-        } else {
-            globalServiceStates[serviceConfig.serviceId].currentStatus = 'unknown';
-            // console.log(`[${serviceConfig.name}] No current status data returned or malformed result from proxy for ID: ${serviceConfig.serviceId}`);
-        }
-        // console.log(`[${serviceConfig.name}] Determined current status: ${globalServiceStates[serviceConfig.serviceId].currentStatus}`);
-
-        const activeTimeButton = document.querySelector('.time-button.active');
-        const range = activeTimeButton ? activeTimeButton.dataset.range : '30d';
-        await fetchHistoricalDataForService(serviceConfig, range);
-        updateServiceUI(serviceConfig);
+    function formatStatusLabel(status) {
+        return status.charAt(0).toUpperCase() + status.slice(1);
     }
 
-    async function fetchHistoricalDataForService(serviceConfig, timeRange) {
-        const historyData = await fetchFromProxy(`/api/history/${serviceConfig.serviceId}?range=${timeRange}`);
-        // console.log(`[${serviceConfig.name}] Raw historical data from proxy:`, JSON.stringify(historyData));
-
-        let processedData = [];
-        let totalUptimeSum = 0;
-        let actualDataPointsCount = 0;
-        let numExpectedPoints;
-
-        switch (timeRange) {
-            case '7d': numExpectedPoints = 7; break;
-            case '15d': numExpectedPoints = 15; break;
-            case '30d': default: numExpectedPoints = 30; break;
+    function formatUptimePercent(value) {
+        if (value === null || value === undefined || Number.isNaN(value)) {
+            return 'N/A';
         }
-
-        if (historyData && historyData.historicalData && Array.isArray(historyData.historicalData)) {
-            // Proxy already sorts and prepares data points with timestamp, uptimeRatio, hasData
-            processedData = historyData.historicalData;
-            actualDataPointsCount = processedData.filter(p => p.hasData).length;
-            processedData.filter(p => p.hasData).forEach(point => totalUptimeSum += point.uptimeRatio);
-        } else {
-            // console.log(`[${serviceConfig.name}] No historical data array from proxy or malformed for ID: ${serviceConfig.serviceId}`);
-        }
-        
-        // The proxy should ideally return data aligned to days already.
-        // If not, the filling logic below might still be needed, but let's assume proxy handles alignment for now.
-        // For simplicity, we'll trust the proxy to return the correct number of points or handle gaps.
-        // If proxy returns fewer points than numExpectedPoints, UI will show fewer bars or we need to re-add filling logic.
-        
-        // For now, directly use what proxy gives, assuming it's aligned for the last numExpectedPoints days
-        const filledData = [];
-        const now = new Date();
-        let startDate = new Date();
-        switch (timeRange) {
-            case '7d': startDate.setDate(now.getDate() - (7-1)); break;
-            case '15d': startDate.setDate(now.getDate() - (15-1)); break;
-            case '30d': default: startDate.setDate(now.getDate() - (30-1)); break;
-        }
-        startDate.setUTCHours(0,0,0,0);
-
-        let promDataIndex = 0;
-        for (let i = 0; i < numExpectedPoints; i++) {
-            const barDate = new Date(startDate.valueOf());
-            barDate.setUTCDate(startDate.getUTCDate() + i);
-            // barDate.setUTCHours(0,0,0,0); // Already done for startDate, and UTCDate increments day correctly
-            const barTimestampSec = Math.floor(barDate.getTime() / 1000);
-            let pointToUse = null;
-
-            if (promDataIndex < processedData.length) {
-                const promDataPoint = processedData[promDataIndex];
-                const promPointDate = new Date(promDataPoint.timestamp * 1000);
-                promPointDate.setUTCHours(0, 0, 0, 0);
-
-                if (promPointDate.getTime() === barDate.getTime()) {
-                    pointToUse = promDataPoint;
-                    promDataIndex++;
-                } else if (promPointDate.getTime() < barDate.getTime()) {
-                    promDataIndex++; i--; continue;
-                }
-            }
-            if (pointToUse) {
-                filledData.push(pointToUse);
-            } else {
-                filledData.push({ timestamp: barTimestampSec, uptimeRatio: 0, hasData: false, simulated: true });
-            }
-        }
-
-        globalServiceStates[serviceConfig.serviceId].historicalData = filledData.slice(-numExpectedPoints);
-
-        if (actualDataPointsCount > 0) {
-            let overallUptimePercentage;
-            const avgValue = totalUptimeSum / actualDataPointsCount;
-            
-            // Handle different metric types intelligently
-            if (avgValue <= 1.0) {
-                // Metric is a ratio (0-1), convert to percentage
-                overallUptimePercentage = avgValue * 100;
-            } else if (avgValue > 90 && avgValue <= 100) {
-                // Likely already a percentage (90-100% range is common for uptime)
-                overallUptimePercentage = avgValue;
-            } else {
-                // Any other value (small integers, large numbers, etc.)
-                // For health metrics, we treat any positive value as "operational"
-                // Calculate uptime as percentage of non-zero values
-                const uptimePointsCount = processedData.filter(p => p.hasData && p.uptimeRatio > 0).length;
-                overallUptimePercentage = (uptimePointsCount / actualDataPointsCount) * 100;
-            }
-            
-            globalServiceStates[serviceConfig.serviceId].overallUptime = `${overallUptimePercentage.toFixed(3)}%`;
-        } else {
-            globalServiceStates[serviceConfig.serviceId].overallUptime = 'N/A';
-        }
+        return `${value.toFixed(3)}%`;
     }
 
-    function updateServiceUI(serviceConfig) {
-        const { serviceId, element, name } = serviceConfig;
-        if (!element) return;
-        const state = globalServiceStates[serviceId];
-        
-        // Update status indicator inside the status text
-        const statusIndicator = element.querySelector('.status-indicator');
-        const statusText = element.querySelector('.status-text');
-        if (statusIndicator && statusText) {
-            statusIndicator.className = `status-indicator ${state.currentStatus}`;
-            const statusDisplayText = state.currentStatus.charAt(0).toUpperCase() + state.currentStatus.slice(1);
-            statusText.innerHTML = `<span class="status-indicator ${state.currentStatus}"></span>${statusDisplayText}`;
-        }
-        
-        element.querySelector('.uptime-percentage').innerHTML = `${state.overallUptime} <span class="uptime-label">Uptime</span>`;
-        generateBars(element.querySelector('.status-bars'), serviceId);
-        updateOverallPageStatus();
+    function defaultServiceIcon(name) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '24');
+        svg.setAttribute('height', '24');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.innerHTML = '<path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z" fill="currentColor"/>';
+        svg.setAttribute('aria-label', name);
+        return svg;
     }
 
-    function updateOverallPageStatus() {
-        const outageServices = SERVICES_CONFIG.filter(cfg => globalServiceStates[cfg.serviceId].currentStatus === 'outage');
-        const isAnyOutage = outageServices.length > 0;
-        
-        const outageList = document.getElementById('outage-list');
-        const outageServicesList = document.getElementById('outage-services');
-        
-        if (isAnyOutage) {
+    function createServiceIcon(service) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'service-icon';
+
+        if (service.icon) {
+            const img = document.createElement('img');
+            img.src = service.icon;
+            img.alt = service.name;
+            img.width = 24;
+            img.height = 24;
+            wrapper.appendChild(img);
+        } else {
+            wrapper.appendChild(defaultServiceIcon(service.name));
+        }
+
+        return wrapper;
+    }
+
+    function createServiceElement(service) {
+        const element = document.createElement('div');
+        element.className = 'service-status';
+        element.dataset.serviceId = service.id;
+
+        const serviceRow = document.createElement('div');
+        serviceRow.className = 'service-row';
+
+        const serviceInfo = document.createElement('div');
+        serviceInfo.className = 'service-info';
+        serviceInfo.appendChild(createServiceIcon(service));
+
+        const title = document.createElement('h3');
+        title.textContent = service.name;
+        serviceInfo.appendChild(title);
+
+        const serviceMeta = document.createElement('div');
+        serviceMeta.className = 'service-meta';
+
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'status-badge unknown';
+        statusBadge.textContent = 'Loading';
+        serviceMeta.appendChild(statusBadge);
+
+        const uptimePercentage = document.createElement('span');
+        uptimePercentage.className = 'uptime-compact';
+        uptimePercentage.textContent = 'N/A';
+        serviceMeta.appendChild(uptimePercentage);
+
+        serviceRow.appendChild(serviceInfo);
+        serviceRow.appendChild(serviceMeta);
+
+        const barsWrap = document.createElement('div');
+        barsWrap.className = 'status-bars-wrap';
+
+        const statusBars = document.createElement('div');
+        statusBars.className = 'status-bars';
+
+        const barsFooter = document.createElement('div');
+        barsFooter.className = 'bars-footer';
+        barsFooter.innerHTML = '<span class="bars-footer-start"></span><span class="bars-footer-end">Today</span>';
+
+        barsWrap.appendChild(statusBars);
+        barsWrap.appendChild(barsFooter);
+
+        element.appendChild(serviceRow);
+        element.appendChild(barsWrap);
+
+        return element;
+    }
+
+    function renderLoadingSkeleton() {
+        statusListEl.innerHTML = '';
+        ['nodes', 'services'].forEach((tab, index) => {
+            const panel = document.createElement('div');
+            panel.className = `tab-panel${index === 0 ? ' active' : ''}`;
+            panel.dataset.tabPanel = tab;
+            panel.innerHTML = Array.from({ length: 4 }, () => `
+                <div class="service-status skeleton-card">
+                    <div class="service-info">
+                        <div class="skeleton skeleton-icon"></div>
+                        <div class="skeleton-lines">
+                            <div class="skeleton skeleton-line"></div>
+                            <div class="skeleton skeleton-line short"></div>
+                        </div>
+                    </div>
+                    <div class="skeleton skeleton-uptime"></div>
+                    <div class="skeleton skeleton-bars"></div>
+                </div>
+            `).join('');
+            statusListEl.appendChild(panel);
+        });
+    }
+
+    function renderServiceList(categories) {
+        statusListEl.innerHTML = '';
+
+        const panels = {};
+        ['nodes', 'services'].forEach((tab) => {
+            const panel = document.createElement('div');
+            panel.className = `tab-panel${tab === activeTab ? ' active' : ''}`;
+            panel.dataset.tabPanel = tab;
+            panels[tab] = panel;
+            statusListEl.appendChild(panel);
+        });
+
+        categories.forEach((category) => {
+            category.services.forEach((service) => {
+                service.category = category.id;
+                const tab = getTabForCategory(category.id);
+                const element = createServiceElement(service);
+                service.element = element;
+                globalServiceStates[service.id] = {
+                    currentStatus: 'unknown',
+                    historicalData: [],
+                    overallUptime: null,
+                };
+                panels[tab].appendChild(element);
+            });
+        });
+
+        Object.values(panels).forEach((panel) => {
+            const cards = Array.from(panel.children);
+            cards.sort((a, b) => {
+                const nameA = a.querySelector('h3')?.textContent || '';
+                const nameB = b.querySelector('h3')?.textContent || '';
+                return nameA.localeCompare(nameB);
+            });
+            cards.forEach((card) => panel.appendChild(card));
+        });
+
+        updateTabCounter();
+    }
+
+    function updateOverallPageStatus(statusPayload) {
+        lastStatusPayload = statusPayload;
+        const outageServices = statusPayload.services.filter((service) => service.status === 'outage');
+        const degradedServices = statusPayload.services.filter((service) =>
+            service.status === 'degraded' || service.status === 'unknown',
+        );
+
+        outageServicesList.innerHTML = '';
+        outageList.style.display = 'none';
+
+        if (statusPayload.overall === 'outage') {
             overallStatusIcon.className = 'status-icon outage';
             overallStatusH1.textContent = 'Major Outage';
-            if (overallStatusIcon.querySelector('svg path')) overallStatusIcon.querySelector('svg path').setAttribute('d', 'M18 6L6 18M6 6l12 12');
-            
-            // Show outage list and populate with affected services
-            outageServicesList.innerHTML = '';
-            outageServices.forEach(service => {
-                const listItem = document.createElement('li');
-                listItem.textContent = service.name;
-                outageServicesList.appendChild(listItem);
+            setOverallIconPath('M18 6L6 18M6 6l12 12');
+            outageList.className = 'outage-list';
+
+            outageServices.forEach((service) => {
+                const item = document.createElement('li');
+                item.textContent = service.name;
+                outageServicesList.appendChild(item);
             });
             outageList.style.display = 'block';
-        } else {
-            overallStatusIcon.className = 'status-icon operational';
-            overallStatusH1.textContent = 'All Systems Operational';
-            if (overallStatusIcon.querySelector('svg path')) overallStatusIcon.querySelector('svg path').setAttribute('d', 'M20 6L9 17L4 12');
-            
-            // Hide outage list when no outages
-            outageList.style.display = 'none';
+            return;
         }
+
+        if (statusPayload.overall === 'degraded') {
+            overallStatusIcon.className = 'status-icon degraded';
+            overallStatusH1.textContent = 'Degraded Performance';
+            setOverallIconPath('M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z');
+            outageList.className = 'outage-list degraded-list';
+
+            degradedServices.forEach((service) => {
+                const item = document.createElement('li');
+                item.textContent = `${service.name} (${formatStatusLabel(service.status)})`;
+                outageServicesList.appendChild(item);
+            });
+            outageList.style.display = degradedServices.length > 0 ? 'block' : 'none';
+            return;
+        }
+
+        overallStatusIcon.className = 'status-icon operational';
+        overallStatusH1.textContent = 'All Systems Operational';
+        setOverallIconPath('M20 6L9 17L4 12');
+        outageList.className = 'outage-list';
+    }
+
+    function setOverallIconPath(pathData) {
+        const path = overallStatusIcon.querySelector('svg path');
+        if (path) {
+            path.setAttribute('d', pathData);
+        }
+    }
+
+    function getServiceElement(serviceId) {
+        return document.querySelector(`.service-status[data-service-id="${serviceId}"]`);
+    }
+
+    function updateServiceUI(service) {
+        const state = globalServiceStates[service.id];
+        const element = service.element || getServiceElement(service.id);
+        if (!element || !state) {
+            return;
+        }
+
+        const status = service.status || state.currentStatus || 'unknown';
+        const statusBadge = element.querySelector('.status-badge');
+        if (statusBadge) {
+            statusBadge.className = `status-badge ${status}`;
+            statusBadge.textContent = formatStatusLabel(status);
+        }
+
+        const uptimeEl = element.querySelector('.uptime-compact');
+        if (uptimeEl) {
+            uptimeEl.textContent = formatUptimePercent(state.overallUptime);
+        }
+
+        const barsFooterStart = element.querySelector('.bars-footer-start');
+        if (barsFooterStart) {
+            barsFooterStart.textContent = `${getRangeDayCount(activeRange)} days ago`;
+        }
+
+        const barsContainer = element.querySelector('.status-bars');
+        if (!state.historicalData || state.historicalData.length === 0) {
+            barsContainer.innerHTML = '<div class="bars-loading">Loading history...</div>';
+            return;
+        }
+
+        generateBars(barsContainer, service.id);
     }
 
     function generateBars(container, serviceId) {
         const state = globalServiceStates[serviceId];
-        const historicalData = state.historicalData || [];
-        const numBars = historicalData.length;
+        const historicalData = state?.historicalData || [];
         container.innerHTML = '';
-        for (let i = 0; i < numBars; i++) {
+
+        historicalData.forEach((dataPoint) => {
             const bar = document.createElement('div');
             bar.classList.add('status-bar');
-            const dataPoint = historicalData[i];
-            if (dataPoint) {
-                if (!dataPoint.hasData) {
-                    bar.classList.add('no-data');
-                } else {
-                    // Handle different metric scales
-                    let normalizedRatio;
-                    if (dataPoint.uptimeRatio <= 1.0) {
-                        // Already a ratio (0-1)
-                        normalizedRatio = dataPoint.uptimeRatio;
-                    } else if (dataPoint.uptimeRatio > 90 && dataPoint.uptimeRatio <= 100) {
-                        // Likely already a percentage (90-100% range), convert to ratio
-                        normalizedRatio = dataPoint.uptimeRatio / 100;
-                    } else {
-                        // Any other value - if > 0 then operational
-                        normalizedRatio = dataPoint.uptimeRatio > 0 ? 1.0 : 0.0;
-                    }
-                    
-                    const downtimeMinutesForColor = Math.round((1 - normalizedRatio) * 24 * 60);
-                    if (downtimeMinutesForColor < 5) {
-                        bar.classList.add('operational');
-                    } else if (normalizedRatio >= 0.9) {
-                        bar.classList.add('degraded');
-                    } else {
-                        bar.classList.add('outage');
-                    }
-                }
-            } else {
+
+            if (!dataPoint.hasData) {
                 bar.classList.add('no-data');
+            } else {
+                const ratio = dataPoint.uptimeRatio ?? 0;
+                const downtimeMinutes = Math.round((1 - ratio) * 24 * 60);
+                if (downtimeMinutes < 5) {
+                    bar.classList.add('operational');
+                } else if (ratio >= 0.9) {
+                    bar.classList.add('degraded');
+                } else {
+                    bar.classList.add('outage');
+                }
             }
+
+            if (dataPoint.incidents?.length) {
+                bar.classList.add('has-incident');
+                bar.dataset.incidentCount = String(dataPoint.incidents.length);
+            }
+
             bar.addEventListener('mouseover', (event) => showTooltip(event, bar, dataPoint));
             bar.addEventListener('mouseout', hideTooltip);
             container.appendChild(bar);
-        }
+        });
     }
 
     function showTooltip(event, barElement, dataPoint) {
+        tooltipContent.incidents.innerHTML = '';
+        tooltip.classList.remove('tooltip-interactive');
+
         if (!dataPoint || !dataPoint.hasData) {
-            tooltipContent.date.textContent = dataPoint ? new Date(dataPoint.timestamp * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown Date';
+            tooltipContent.date.textContent = dataPoint
+                ? new Date(dataPoint.timestamp * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'Unknown Date';
             tooltipContent.uptime.textContent = 'No historical data';
             tooltipContent.downtime.style.display = 'none';
         } else {
             const date = new Date(dataPoint.timestamp * 1000);
             tooltipContent.date.textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            
-            // Handle different metric scales for tooltip display
-            let uptimePercentage;
-            let normalizedRatio;
-            
-            if (dataPoint.uptimeRatio <= 1.0) {
-                // Already a ratio (0-1)
-                normalizedRatio = dataPoint.uptimeRatio;
-                uptimePercentage = dataPoint.uptimeRatio * 100;
-            } else if (dataPoint.uptimeRatio > 90 && dataPoint.uptimeRatio <= 100) {
-                // Likely already a percentage (90-100% range)
-                uptimePercentage = dataPoint.uptimeRatio;
-                normalizedRatio = dataPoint.uptimeRatio / 100;
-            } else {
-                // Any other value - if > 0 then operational (100%), else 0%
-                normalizedRatio = dataPoint.uptimeRatio > 0 ? 1.0 : 0.0;
-                uptimePercentage = normalizedRatio * 100;
-            }
-            
-            tooltipContent.uptime.textContent = `${uptimePercentage.toFixed(1)}%`;
-            const downtimeMinutes = Math.round((1 - normalizedRatio) * 24 * 60);
+
+            const ratio = dataPoint.uptimeRatio ?? 0;
+            tooltipContent.uptime.textContent = `${(ratio * 100).toFixed(1)}%`;
+
+            const downtimeMinutes = Math.round((1 - ratio) * 24 * 60);
             if (downtimeMinutes < 5) {
                 tooltipContent.downtime.style.display = 'none';
             } else {
                 tooltipContent.downtime.textContent = `Est. downtime: ${downtimeMinutes} min`;
                 tooltipContent.downtime.style.display = 'block';
             }
+
+            if (dataPoint.incidents?.length) {
+                tooltip.classList.add('tooltip-interactive');
+                dataPoint.incidents.forEach((incident) => {
+                    const item = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.href = incident.url || 'incident-history.html';
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.textContent = incident.title || `Incident #${incident.number}`;
+                    item.appendChild(link);
+                    tooltipContent.incidents.appendChild(item);
+                });
+            }
         }
+
         tooltip.style.display = 'block';
         const barRect = barElement.getBoundingClientRect();
         const tooltipRect = tooltip.getBoundingClientRect();
         let top = barRect.top - tooltipRect.height - 10;
         let left = barRect.left + (barRect.width / 2) - (tooltipRect.width / 2);
+
         if (left < 0) left = 5;
-        if (left + tooltipRect.width > window.innerWidth) left = window.innerWidth - tooltipRect.width - 5;
+        if (left + tooltipRect.width > window.innerWidth) {
+            left = window.innerWidth - tooltipRect.width - 5;
+        }
+
         if (top < 0) {
             top = barRect.bottom + 10;
-            tooltipArrow.style.bottom = '100%'; tooltipArrow.style.top = 'auto';
-            tooltipArrow.style.borderWidth = '0 5px 5px 5px'; tooltipArrow.style.borderColor = 'transparent transparent #212529 transparent';
+            tooltipArrow.style.bottom = '100%';
+            tooltipArrow.style.top = 'auto';
+            tooltipArrow.style.borderWidth = '0 5px 5px 5px';
+            tooltipArrow.style.borderColor = 'transparent transparent #212529 transparent';
         } else {
-            tooltipArrow.style.top = '100%'; tooltipArrow.style.bottom = 'auto';
-            tooltipArrow.style.borderWidth = '5px 5px 0 5px'; tooltipArrow.style.borderColor = '#212529 transparent transparent transparent';
+            tooltipArrow.style.top = '100%';
+            tooltipArrow.style.bottom = 'auto';
+            tooltipArrow.style.borderWidth = '5px 5px 0 5px';
+            tooltipArrow.style.borderColor = '#212529 transparent transparent transparent';
         }
-        tooltipArrow.style.left = '50%'; tooltipArrow.style.transform = 'translateX(-50%)';
+
+        tooltipArrow.style.left = '50%';
+        tooltipArrow.style.transform = 'translateX(-50%)';
         tooltip.style.left = `${left + window.scrollX}px`;
         tooltip.style.top = `${top + window.scrollY}px`;
     }
@@ -318,45 +524,151 @@ document.addEventListener('DOMContentLoaded', function() {
         tooltip.style.display = 'none';
     }
 
-    document.querySelectorAll('.tab-button').forEach(button => {
-        button.addEventListener('click', () => {
-            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            const range = button.dataset.range;
-            document.querySelectorAll('.time-button').forEach(tb => {
-                tb.classList.remove('active');
-                if (tb.dataset.range === range) tb.classList.add('active'); // Keep time range selection
-            });
-            SERVICES_CONFIG.forEach(updateServiceData);
-        });
-    });
-
-    document.querySelectorAll('.time-button').forEach(button => {
-        button.addEventListener('click', () => {
-            document.querySelectorAll('.time-button').forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            SERVICES_CONFIG.forEach(updateServiceData); // Refetch data for the new range
-        });
-    });
-
-    // Update the node counter in the Live Status heading
-    function updateNodeCounter() {
-        const nodeCounter = document.getElementById('node-counter');
-        if (nodeCounter) {
-            nodeCounter.textContent = `(${SERVICES_CONFIG.length})`;
-        }
+    function flattenCategories(categories) {
+        return categories.flatMap((category) =>
+            category.services.map((service) => ({ ...service, category: category.id })),
+        );
     }
 
-    // Initial data fetch for all services
-    async function initializeStatusPage() {
-        updateNodeCounter(); // Update the counter first
-        for (const serviceConfig of SERVICES_CONFIG) {
-            if (serviceConfig.element) { // Only process if element was found
-                await updateServiceData(serviceConfig);
+    async function loadHistory(range) {
+        const historyData = await fetchFromProxy(`/api/v2/history?range=${range}`);
+        if (!historyData?.histories) {
+            console.error('[History] No history data returned from API');
+            return;
+        }
+
+        flattenCategories(categoriesConfig).forEach((service) => {
+            const history = historyData.histories[service.id];
+            if (!history) {
+                return;
             }
-        }
-        updateOverallPageStatus(); // Update overall status after all services are fetched
+
+            if (!globalServiceStates[service.id]) {
+                globalServiceStates[service.id] = {
+                    currentStatus: 'unknown',
+                    historicalData: [],
+                    overallUptime: null,
+                };
+            }
+
+            globalServiceStates[service.id].historicalData = enrichHistoryWithIncidents(
+                history.historicalData || [],
+                service.id,
+            );
+            globalServiceStates[service.id].overallUptime = history.overallUptime;
+            updateServiceUI(service);
+        });
     }
 
-    initializeStatusPage();
-}); 
+    async function loadV2Data(range, { statusOnly = false } = {}) {
+        if (categoriesConfig.length === 0) {
+            renderLoadingSkeleton();
+        }
+
+        const [configData, statusData] = await Promise.all([
+            fetchFromProxy('/api/v2/config'),
+            fetchFromProxy('/api/v2/status'),
+        ]);
+
+        if (!configData || !statusData) {
+            showFatalError('Unable to load status data from API v2.');
+            return;
+        }
+
+        if (categoriesConfig.length === 0) {
+            categoriesConfig = configData.categories;
+            renderServiceList(categoriesConfig);
+        }
+
+        if (nodeCounter) {
+            updateTabCounter();
+        }
+
+        if (lastUpdatedEl && statusData.lastChecked) {
+            const updated = new Date(statusData.lastChecked);
+            lastUpdatedEl.textContent = `Last updated: ${updated.toLocaleTimeString()}`;
+        }
+
+        const servicesById = Object.fromEntries(statusData.services.map((service) => [service.id, service]));
+
+        flattenCategories(categoriesConfig).forEach((service) => {
+            const live = servicesById[service.id];
+            if (!live) {
+                return;
+            }
+
+            service.status = live.status;
+            globalServiceStates[service.id].currentStatus = live.status;
+            updateServiceUI(service);
+        });
+
+        updateOverallPageStatus(statusData);
+
+        if (!statusOnly) {
+            await Promise.all([
+                loadHistory(range),
+                loadIncidents(),
+            ]);
+            // Re-render bars with incident overlays after incidents load
+            flattenCategories(categoriesConfig).forEach((service) => {
+                const state = globalServiceStates[service.id];
+                if (state?.historicalData?.length) {
+                    state.historicalData = enrichHistoryWithIncidents(state.historicalData, service.id);
+                    updateServiceUI(service);
+                }
+            });
+        }
+    }
+
+    async function refreshData({ historyOnly = false } = {}) {
+        try {
+            if (useV2) {
+                if (historyOnly && categoriesConfig.length > 0) {
+                    await Promise.all([loadIncidents(), loadHistory(activeRange)]);
+                    flattenCategories(categoriesConfig).forEach((service) => {
+                        const state = globalServiceStates[service.id];
+                        if (state?.historicalData?.length) {
+                            state.historicalData = enrichHistoryWithIncidents(state.historicalData, service.id);
+                            updateServiceUI(service);
+                        }
+                    });
+                    return;
+                }
+                await loadV2Data(activeRange);
+                return;
+            }
+
+            showFatalError('Legacy v1 API is no longer supported by this frontend. Enable USE_API_V2 in config.js.');
+        } catch (error) {
+            console.error('[Status Page] Failed to refresh data:', error);
+        }
+    }
+
+    document.querySelectorAll('.tab-button').forEach((button) => {
+        button.addEventListener('click', () => {
+            switchTab(button.dataset.tab);
+        });
+    });
+
+    document.querySelectorAll('.time-button').forEach((button) => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('.time-button').forEach((btn) => btn.classList.remove('active'));
+            button.classList.add('active');
+            activeRange = button.dataset.range;
+            refreshData({ historyOnly: true });
+        });
+    });
+
+    initTheme();
+    initRssLink();
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+    }
+
+    refreshData();
+
+    if (pollInterval > 0) {
+        pollTimer = setInterval(refreshData, pollInterval * 1000);
+        window.addEventListener('beforeunload', () => clearInterval(pollTimer));
+    }
+});

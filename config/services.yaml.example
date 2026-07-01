@@ -1,0 +1,212 @@
+# Stakecraft Status Page — Unified Service Configuration (v2)
+#
+# Single source of truth for:
+#   - Public status page (via backend API)
+#   - Grafana dashboard service list
+#   - Prometheus recording rule generation
+#
+# Copy to services.yaml and customize prometheus_job values for your environment.
+# DO NOT commit services.yaml if it contains environment-specific secrets.
+
+version: 2
+
+defaults:
+  category: node
+  network: mainnet
+  public: true
+  health:
+    type: up
+
+categories:
+  website:
+    label: Websites
+    order: 1
+  node:
+    label: Nodes
+    order: 2
+  indexer:
+    label: Indexers
+    order: 3
+  oracle:
+    label: Oracles
+    order: 4
+  collator:
+    label: Collators
+    order: 5
+
+services:
+  - id: stakecraft-com
+    name: Stakecraft.com
+    category: website
+    icon: https://stakecraft.com/assets/headerLogo-CfNQNJUs.svg
+    health:
+      type: threshold
+      query: probe_success{job="blackbox-stakecraft-com"}
+      condition: "== 1"
+
+  - id: solana
+    name: Solana Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/4128/small/solana.png
+    health:
+      prometheus_job: solana-mainnet
+
+  - id: walrus
+    name: Walrus Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/54914/standard/WAL_logo.png?1742494301
+    health:
+      prometheus_job: walrus-mainnet
+
+  - id: kava
+    name: Kava Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/9761/standard/kava.png?1696509822
+    health:
+      prometheus_job: kava-mainnet
+
+  - id: koii
+    name: Koii Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/53597/standard/GTfiVKwT_400x400.jpg?1736807114
+    health:
+      prometheus_job: koii-mainnet
+
+  - id: supra
+    name: Supra Oracles Mainnet Node
+    category: oracle
+    icon: https://assets.coingecko.com/coins/images/35836/standard/photo_2024-03-09_19-25-08.jpg?1709983533
+    health:
+      prometheus_job: supra-mainnet
+
+  - id: band
+    name: Band Protocol Mainnet Node
+    category: oracle
+    icon: https://assets.coingecko.com/coins/images/9545/standard/Band_token_blue_violet_token.png?1696509627
+    health:
+      prometheus_job: band-mainnet
+
+  - id: moonriver
+    name: Moonriver Network Collator
+    category: collator
+    icon: https://assets.coingecko.com/coins/images/17984/standard/Moonriver_MOVR_ICON.png?1716647589
+    health:
+      prometheus_job: moonriver-mainnet
+
+  - id: qprotocol
+    name: Q Protocol Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/39327/standard/Q-logo-green.png?1721742256
+    health:
+      prometheus_job: qprotocol-mainnet
+
+  - id: thegraph
+    name: The Graph Indexer
+    category: indexer
+    icon: https://assets.coingecko.com/coins/images/13397/small/Graph_Token.png
+    health:
+      prometheus_job: thegraph-mainnet
+
+  - id: polygon
+    name: Polygon Network Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/4713/small/matic-token-icon.png
+    health:
+      prometheus_job: polygon-mainnet
+
+  - id: altair
+    name: Altair Network Collator
+    category: collator
+    icon: https://assets.coingecko.com/coins/images/23548/standard/altair.jpeg?1696522755
+    health:
+      prometheus_job: altair-mainnet
+
+  - id: centrifuge
+    name: Centrifuge Network Collator
+    category: collator
+    icon: https://assets.coingecko.com/coins/images/55913/standard/centrifuge.jpg?1747707741
+    health:
+      prometheus_job: centrifuge-mainnet
+
+  - id: ki
+    name: Ki Foundation Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/15694/standard/xki-color.png?1696515323
+    health:
+      prometheus_job: ki-mainnet
+
+  - id: agoric
+    name: Agoric Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/24487/standard/agoric_bld_logo.png?1696523668
+    health:
+      prometheus_job: agoric-mainnet
+
+  - id: zetachain
+    name: Zetachain Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/26718/standard/Twitter_icon.png?1696525788
+    health:
+      prometheus_job: zetachain-mainnet
+
+  - id: covalent
+    name: Covalent Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/39177/standard/Covalent_Logomark_Square_Square.png?1734037870
+    health:
+      prometheus_job: covalent-mainnet
+
+  - id: stafi
+    name: Stafi Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/12423/standard/FIS.png?1696512244
+    health:
+      prometheus_job: stafi-mainnet
+
+  - id: subquery
+    name: SubQuery Mainnet Node
+    category: indexer
+    icon: https://assets.coingecko.com/coins/images/23359/standard/LinkedIn_Avatar_Op1.png?1724379155
+    health:
+      prometheus_job: subquery-mainnet
+
+  - id: stargaze
+    name: Stargaze Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/22363/standard/pink_star_200.png?1711311188
+    health:
+      prometheus_job: stargaze-mainnet
+
+  - id: bitsong
+    name: Bitsong Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/5041/standard/logo_-_2021-01-10T210801.390.png?1696505572
+    health:
+      prometheus_job: bitsong-mainnet
+
+  - id: bitscrunch
+    name: BitsCrunch Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/34832/standard/logo-256_%281%29.png?1710244462
+    health:
+      prometheus_job: bitscrunch-mainnet
+
+  - id: redbelly
+    name: RedBelly Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/34372/standard/RBNT.jpg?1704728914
+    health:
+      prometheus_job: redbelly-mainnet
+
+  - id: near
+    name: Near Protocol Mainnet Node
+    category: node
+    icon: https://assets.coingecko.com/coins/images/10365/small/near.jpg
+    health:
+      prometheus_job: near-mainnet
+
+  - id: spacetime
+    name: Space&Time Mainnet Node
+    category: node
+    health:
+      prometheus_job: spacetime-mainnet

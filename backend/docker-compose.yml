@@ -1,10 +1,14 @@
 version: '3.8'
 
+# Production deployment (API + Nginx reverse proxy with SSL).
+# For local development, use the root docker-compose.yml instead:
+#   cd .. && ./scripts/dev-up.sh
+
 services:
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     container_name: status_page_app
     restart: unless-stopped
     env_file:
@@ -13,11 +17,7 @@ services:
     # will be picked up from the .env file by docker-compose and passed to the container.
     # Your proxy-server.js already reads these from process.env.
     volumes:
-      # If you want live-reloading for development, you could mount your source code:
-      # - .: /usr/src/app 
-      # Make sure to run npm install locally if you do this for dev
-      # For production, the files are copied in the Dockerfile, so this isn't strictly necessary
-      # unless proxy-services-config.yaml needs to be changed without rebuilding the image.
+      - ../config/services.yaml.example:/usr/src/app/config/services.yaml:ro
       - ./proxy-services-config.yaml:/usr/src/app/proxy-services-config.yaml:ro
     # networks:
     #   - app-network # See below if using a custom network

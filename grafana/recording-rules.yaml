@@ -1,0 +1,52 @@
+# Prometheus Recording Rules — Stakecraft Status Page v2
+#
+# Apply via Prometheus rule_files config or Grafana Mimir/Cortex ruler.
+# These rules produce standardized metrics consumed by:
+#   - Internal Grafana "Public Uptime Overview" dashboard
+#   - Status page API v2 (/api/v2/status, /api/v2/history)
+#
+# Prerequisites:
+#   - Each service exposes `up{job="<prometheus_job>"}` or a custom health metric
+#   - Job names match config/services.yaml.example
+
+groups:
+  - name: stakecraft_status
+    interval: 30s
+    rules:
+      # Current health (0 = outage, 1 = operational)
+      # Extend the job regex as services are added to services.yaml
+      - record: stakecraft:service:up
+        expr: |
+          label_replace(
+            up{job=~"solana-mainnet|walrus-mainnet|kava-mainnet|koii-mainnet|supra-mainnet|band-mainnet|moonriver-mainnet|qprotocol-mainnet|thegraph-mainnet|polygon-mainnet|altair-mainnet|centrifuge-mainnet|ki-mainnet|agoric-mainnet|zetachain-mainnet|covalent-mainnet|stafi-mainnet|subquery-mainnet|stargaze-mainnet|bitsong-mainnet|bitscrunch-mainnet|redbelly-mainnet|near-mainnet|spacetime-mainnet"},
+            "service", "$1", "job", "(.+)-mainnet"
+          )
+
+      # Website health (blackbox probe)
+      - record: stakecraft:service:up
+        expr: |
+          label_replace(
+            probe_success{job="blackbox-stakecraft-com"},
+            "service", "stakecraft-com", "", ""
+          )
+
+      # Daily uptime ratio (for history bars)
+      # Uses avg_over_time of the up metric over 1 day
+      - record: stakecraft:service:uptime_ratio:1d
+        expr: |
+          avg_over_time(stakecraft:service:up[1d])
+
+      # Rolling 30-day uptime percentage (for stat panels and API)
+      - record: stakecraft:service:uptime_ratio:30d
+        expr: |
+          avg_over_time(stakecraft:service:up[30d]) * 100
+
+      # Service count by status (for dashboard summary row)
+      - record: stakecraft:status:operational_count
+        expr: count(stakecraft:service:up == 1)
+
+      - record: stakecraft:status:outage_count
+        expr: count(stakecraft:service:up == 0)
+
+      - record: stakecraft:status:total_count
+        expr: count(stakecraft:service:up)

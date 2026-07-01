@@ -11,6 +11,7 @@ backend/node_modules/
 # backend/nginx/ssl/selfsigned.crt
 
 backend/proxy-services-config.yaml
+config/services.yaml
 
 # Environment files
 .env
