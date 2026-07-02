@@ -416,6 +416,15 @@ document.addEventListener('DOMContentLoaded', function () {
         generateBars(barsContainer, service.id);
     }
 
+    function getCoverageMinutesForBar(dataPoint) {
+        if (!dataPoint?.partial) {
+            return 24 * 60;
+        }
+
+        const elapsedSec = Math.floor(Date.now() / 1000) - dataPoint.timestamp;
+        return Math.max(Math.round(elapsedSec / 60), 1);
+    }
+
     function generateBars(container, serviceId) {
         const state = globalServiceStates[serviceId];
         const historicalData = state?.historicalData || [];
@@ -429,7 +438,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 bar.classList.add('no-data');
             } else {
                 const ratio = dataPoint.uptimeRatio ?? 0;
-                const downtimeMinutes = Math.round((1 - ratio) * 24 * 60);
+                const coverageMinutes = getCoverageMinutesForBar(dataPoint);
+                const downtimeMinutes = Math.round((1 - ratio) * coverageMinutes);
                 if (downtimeMinutes < 5) {
                     bar.classList.add('operational');
                 } else if (ratio >= 0.9) {
@@ -465,9 +475,12 @@ document.addEventListener('DOMContentLoaded', function () {
             tooltipContent.date.textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
             const ratio = dataPoint.uptimeRatio ?? 0;
-            tooltipContent.uptime.textContent = `${(ratio * 100).toFixed(1)}%`;
+            const coverageMinutes = getCoverageMinutesForBar(dataPoint);
+            tooltipContent.uptime.textContent = dataPoint.partial
+                ? `${(ratio * 100).toFixed(1)}% (partial day, in progress)`
+                : `${(ratio * 100).toFixed(1)}%`;
 
-            const downtimeMinutes = Math.round((1 - ratio) * 24 * 60);
+            const downtimeMinutes = Math.round((1 - ratio) * coverageMinutes);
             if (downtimeMinutes < 5) {
                 tooltipContent.downtime.style.display = 'none';
             } else {

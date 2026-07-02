@@ -8,6 +8,7 @@ const {
     isValidHistoryRange,
     getRangeStartDate,
     alignHistoricalPoints,
+    fillTodayPartialHistoryPoint,
     mapHistoryRangeValues,
     parseInstantValue,
     valueToStatus,
@@ -44,6 +45,36 @@ function historyPayloadWorthCaching(payload) {
         );
     }
     return payload.historicalData.some((point) => point.hasData);
+}
+
+async function buildServiceHistory(service, range, prometheus, useRecordingRules) {
+    const historyQuery = buildHistoryQuery(service, useRecordingRules);
+    if (!historyQuery) {
+        return { historicalData: [], overallUptime: null };
+    }
+
+    const condition = getHealthCondition(service);
+    const now = new Date();
+    const startDate = getRangeStartDate(range);
+    const result = await prometheus.queryRange(historyQuery, startDate, now, '1d');
+
+    let rawPoints = [];
+    if (result && result.length > 0 && result[0].values) {
+        rawPoints = mapHistoryRangeValues(result[0].values, condition);
+    }
+
+    let historicalData = alignHistoricalPoints(rawPoints, range);
+    historicalData = await fillTodayPartialHistoryPoint(
+        historicalData,
+        service,
+        prometheus,
+        useRecordingRules,
+    );
+
+    return {
+        historicalData,
+        overallUptime: computeOverallUptimePercent(historicalData),
+    };
 }
 
 function createV2Router({ servicesConfig, prometheus, useRecordingRules = false }) {
@@ -147,18 +178,12 @@ function createV2Router({ servicesConfig, prometheus, useRecordingRules = false 
         // with the aggregate /history cache key below.
         const cacheKey = `history:one:${serviceId}:${range}`;
         const payload = await getHistoryCached(cacheKey, async () => {
-            const now = new Date();
-            const startDate = getRangeStartDate(range);
-            const result = await prometheus.queryRange(historyQuery, startDate, now, '1d');
-
-            const condition = getHealthCondition(service);
-            let rawPoints = [];
-            if (result && result.length > 0 && result[0].values) {
-                rawPoints = mapHistoryRangeValues(result[0].values, condition);
-            }
-
-            const historicalData = alignHistoricalPoints(rawPoints, range);
-            const overallUptime = computeOverallUptimePercent(historicalData);
+            const { historicalData, overallUptime } = await buildServiceHistory(
+                service,
+                range,
+                prometheus,
+                useRecordingRules,
+            );
 
             return {
                 serviceId,
@@ -187,27 +212,12 @@ function createV2Router({ servicesConfig, prometheus, useRecordingRules = false 
                 servicesConfig.services,
                 PROMETHEUS_CONCURRENCY,
                 async (service) => {
-                    const historyQuery = buildHistoryQuery(service, useRecordingRules);
-                    if (!historyQuery) {
-                        histories[service.id] = { historicalData: [], overallUptime: null };
-                        return;
-                    }
-
-                    const condition = getHealthCondition(service);
-                    const now = new Date();
-                    const startDate = getRangeStartDate(range);
-                    const result = await prometheus.queryRange(historyQuery, startDate, now, '1d');
-
-                    let rawPoints = [];
-                    if (result && result.length > 0 && result[0].values) {
-                        rawPoints = mapHistoryRangeValues(result[0].values, condition);
-                    }
-
-                    const historicalData = alignHistoricalPoints(rawPoints, range);
-                    histories[service.id] = {
-                        historicalData,
-                        overallUptime: computeOverallUptimePercent(historicalData),
-                    };
+                    histories[service.id] = await buildServiceHistory(
+                        service,
+                        range,
+                        prometheus,
+                        useRecordingRules,
+                    );
                 },
             );
 

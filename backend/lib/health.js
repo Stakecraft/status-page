@@ -158,6 +158,61 @@ function mapHistoryRangeValues(values, condition) {
     }));
 }
 
+function buildTodayPartialHistoryQuery(service, useRecordingRules, elapsedSec) {
+    const durationSec = Math.max(Math.floor(elapsedSec), 60);
+
+    if (useRecordingRules) {
+        return `${RECORDING_RULE_UPTIME_1D}{service="${service.id}"}`;
+    }
+
+    const vectorQuery = buildHealthQuery(service);
+    if (!vectorQuery) {
+        return null;
+    }
+
+    return `avg(avg_over_time(${vectorQuery}[${durationSec}s]))`;
+}
+
+async function fillTodayPartialHistoryPoint(historicalData, service, prometheus, useRecordingRules) {
+    if (historicalData.length === 0) {
+        return historicalData;
+    }
+
+    const lastIndex = historicalData.length - 1;
+    const last = historicalData[lastIndex];
+    const todaySec = utcDayTimestamp(new Date());
+
+    if (last.timestamp !== todaySec || last.hasData) {
+        return historicalData;
+    }
+
+    const elapsedSec = Math.floor(Date.now() / 1000) - todaySec;
+    const query = buildTodayPartialHistoryQuery(service, useRecordingRules, elapsedSec);
+    if (!query) {
+        return historicalData;
+    }
+
+    const result = await prometheus.query(query);
+    const condition = getHealthCondition(service);
+    const rawValue = parseInstantValue(
+        result,
+        useRecordingRules ? { service: service.id } : null,
+    );
+
+    if (rawValue === null) {
+        return historicalData;
+    }
+
+    const updated = [...historicalData];
+    updated[lastIndex] = {
+        timestamp: todaySec,
+        uptimeRatio: historyValueToRatio(rawValue, condition),
+        hasData: true,
+        partial: true,
+    };
+    return updated;
+}
+
 function historyValueToRatio(rawValue, condition) {
     const normalized = normalizeUptimeRatio(rawValue);
     if (normalized === null) {
@@ -315,6 +370,7 @@ module.exports = {
     buildUptime30dQuery,
     historyEvaluationToCoverageDay,
     mapHistoryRangeValues,
+    fillTodayPartialHistoryPoint,
     historyValueToRatio,
     computeOverallStatus,
     computeOverallUptimePercent,
