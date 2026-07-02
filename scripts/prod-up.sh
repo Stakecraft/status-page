@@ -16,12 +16,6 @@ if [ ! -f .env ]; then
   echo "Edit backend/.env before production use (Prometheus URL, GitHub token, etc.)"
 fi
 
-if [ ! -f nginx/ssl/fullchain.pem ] || [ ! -f nginx/ssl/privkey.pem ]; then
-  echo "Missing TLS certs in backend/nginx/ssl/"
-  echo "See backend/nginx/ssl/README.md"
-  exit 1
-fi
-
 export SERVICES_CONFIG="${SERVICES_CONFIG:-../config/services.yaml}"
 
 echo "Building and starting production API stack..."
@@ -30,7 +24,7 @@ docker compose up --build -d
 echo
 echo "Waiting for API health check..."
 for i in $(seq 1 30); do
-  if docker compose exec -T app node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
+  if docker compose exec -T app node -e "fetch('http://127.0.0.1:3333/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
     echo "API is healthy"
     break
   fi
@@ -38,6 +32,6 @@ for i in $(seq 1 30); do
 done
 
 echo
-echo "API (via Nginx): https://api.status.stakecraft.com"
+echo "API (via Nginx): http://api.status.stakecraft.com (HTTPS via Cloudflare)"
 echo "View logs:       cd backend && docker compose logs -f"
 echo "Stop:            cd backend && docker compose down"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-API="${API_BASE_URL:-http://localhost:3000}"
+API="${API_BASE_URL:-http://localhost:3333}"
 PASS=0
 FAIL=0
 

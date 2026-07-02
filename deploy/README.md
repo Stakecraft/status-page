@@ -5,7 +5,7 @@
 | Frontend | `https://status.stakecraft.com` | Cloudflare Pages |
 | API | `https://api.status.stakecraft.com` | Bare metal (Docker Compose) |
 
-The frontend is static (`docs/`). The API runs as two containers: Node.js app + Nginx reverse proxy with TLS.
+The frontend is static (`docs/`). The API runs as two containers: Node.js app + Nginx on port 80. **HTTPS is terminated by Cloudflare** in front of the origin.
 
 ---
 
@@ -46,8 +46,9 @@ Manifests: `backend/docker-compose.yml` (app + nginx).
 ### Server prerequisites
 
 - Docker and Docker Compose
-- Ports **80** and **443** open on the firewall
-- DNS **A** (or proxied CNAME) for `api.status.stakecraft.com` → server IP
+- Port **80** open on the firewall (443 handled by Cloudflare)
+- DNS **proxied** A/CNAME for `api.status.stakecraft.com` → server IP (orange cloud in Cloudflare)
+- Cloudflare SSL mode **Flexible** or **Full** for the API subdomain (origin serves HTTP only)
 - Prometheus reachable from the server (private network; do not expose publicly)
 
 ### One-time setup on the server
@@ -61,9 +62,6 @@ cp config/services.yaml.example config/services.yaml
 
 cp backend/.env.example backend/.env
 # edit backend/.env — ACTUAL_PROMETHEUS_URL, GITHUB_TOKEN, CORS_ORIGIN, etc.
-
-# TLS certs — see backend/nginx/ssl/README.md
-# Place fullchain.pem and privkey.pem in backend/nginx/ssl/
 ```
 
 ### Start / update
@@ -105,7 +103,7 @@ docker compose -f backend/docker-compose.yml logs -f
 | `STATUS_PAGE_URL` | `https://status.stakecraft.com` |
 | `ACTUAL_PROMETHEUS_URL` | Prometheus URL reachable from the server |
 
-The app container listens on port 3000 **inside Docker only**. Nginx terminates TLS and proxies to it — do not publish port 3000 on the host (rate limiting relies on nginx setting `X-Forwarded-For`).
+The app container listens on port 3333 **inside Docker only**. Nginx proxies HTTP on port 80 — do not publish port 3333 on the host (rate limiting relies on nginx setting `X-Forwarded-For`).
 
 ### systemd (start on boot)
 
@@ -115,7 +113,7 @@ Install the unit so the stack starts automatically after reboot:
 # Clone to /opt/status-page (recommended), or set REPO_DIR
 sudo git clone https://github.com/Stakecraft/status-page.git /opt/status-page
 
-# Complete one-time setup (config, .env, TLS certs) — see above
+# Complete one-time setup (config, .env) — see above
 
 sudo chmod +x /opt/status-page/deploy/systemd/install.sh
 sudo /opt/status-page/deploy/systemd/install.sh
@@ -149,7 +147,7 @@ Optional: copy `deploy/systemd/status-page-api.env.example` to `/etc/default/sta
 
 ```
 Browser → status.stakecraft.com (Cloudflare Pages, static docs/)
-       → api.status.stakecraft.com (Nginx :443 → app :3000 on bare metal)
+       → api.status.stakecraft.com (Cloudflare HTTPS → origin Nginx :80 → app :3333)
        → Prometheus (internal)
 ```
 

@@ -1,4 +1,5 @@
-# Production API on bare metal (Node app + Nginx with TLS).
+# Production API on bare metal (Node app + Nginx reverse proxy).
+# TLS is terminated by Cloudflare in front of the origin (HTTP on port 80).
 # Local dev stack (API + static frontend): use root docker-compose.yml
 #   cd .. && ./scripts/dev-up.sh
 
@@ -12,18 +13,17 @@ services:
     env_file:
       - .env
     environment:
-      PROXY_PORT: 3000
+      PROXY_PORT: 3333
       SERVICES_CONFIG_PATH: /usr/src/app/config/services.yaml
       API_V2_ENABLED: "true"
       USE_RECORDING_RULES: "false"
       NODE_ENV: production
     volumes:
       - ${SERVICES_CONFIG:-../config/services.yaml}:/usr/src/app/config/services.yaml:ro
-      - ./proxy-services-config.yaml:/usr/src/app/proxy-services-config.yaml:ro
     expose:
-      - "3000"
+      - "3333"
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3333/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -35,14 +35,8 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - certbot-webroot:/var/www/certbot:ro
     depends_on:
       app:
         condition: service_healthy
-
-volumes:
-  certbot-webroot:

@@ -25,7 +25,7 @@ const app = express();
 // publish the app port directly — a direct client could spoof X-Forwarded-For
 // and rotate rate-limit buckets at will.
 app.set('trust proxy', 1);
-const PROXY_SERVER_PORT = process.env.PROXY_PORT || 3000;
+const PROXY_SERVER_PORT = process.env.PROXY_PORT || 3333;
 const ACTUAL_PROMETHEUS_URL = process.env.ACTUAL_PROMETHEUS_URL || 'http://127.0.0.1:9090';
 const API_V2_ENABLED = process.env.API_V2_ENABLED !== 'false';
 const USE_RECORDING_RULES = process.env.USE_RECORDING_RULES === 'true';

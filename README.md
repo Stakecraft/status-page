@@ -45,7 +45,7 @@ docker compose up --build -d
 | Service | URL |
 |---------|-----|
 | Frontend | http://localhost:8080 |
-| API | http://localhost:3000 |
+| API | http://localhost:3333 |
 
 Useful commands:
 
@@ -55,7 +55,7 @@ docker compose down             # stop
 docker compose up --build -d    # rebuild after code changes
 ```
 
-**Config:** `config/services.yaml` is mounted into the API container. Copy from `config/services.yaml.example` if missing. Map `health.query` values to your Prometheus metrics (see legacy `backend/proxy-services-config.yaml` for reference).
+**Config:** `config/services.yaml` is mounted into the API container. Copy from `config/services.yaml.example` if missing.
 
 **Production:** see [deploy/README.md](deploy/README.md) for Cloudflare Pages + bare-metal Docker Compose.
 
@@ -76,8 +76,7 @@ docker compose up --build -d    # rebuild after code changes
 │   ├── Dockerfile          # Dockerfile for building the backend Node.js app image
 │   ├── docker-compose.yml  # Docker Compose file to run backend app and Nginx
 │   ├── nginx/
-│   │   ├── nginx.conf      # Nginx configuration for reverse proxy and SSL
-│   │   └── ssl/            # Directory for SSL certificates (e.g., selfsigned.crt, selfsigned.key)
+│   │   ├── nginx.conf      # Nginx configuration for reverse proxy
 │   ├── .env.example        # Example environment variables for the backend
 │   └── .env                # Actual environment variables for the backend (ignored by Git)
 ├── .github/
@@ -103,11 +102,7 @@ docker compose up --build -d    # rebuild after code changes
     *   Fetches specific GitHub issues based on repository and label, using a GitHub token.
     *   Configured with CORS to only allow requests from the specified frontend domain.
 *   **Dockerized Backend:** The backend proxy and Nginx are containerized using Docker and Docker Compose for easier deployment and management.
-*   **Nginx Reverse Proxy:**
-    *   Handles incoming HTTPS requests.
-    *   Provides SSL termination.
-    *   Redirects HTTP to HTTPS.
-    *   Serves the backend application.
+*   **Nginx Reverse Proxy:** Proxies HTTP on port 80 to the Node.js app (TLS terminated by Cloudflare).
 
 ## Production Deployment
 
@@ -122,10 +117,9 @@ Quick checklist:
 
 1. **Cloudflare Pages** — connect Git, output dir `docs`, custom domain `status.stakecraft.com`
 2. **Server** — clone repo, configure `config/services.yaml` and `backend/.env`
-3. **TLS** — place `fullchain.pem` + `privkey.pem` in `backend/nginx/ssl/` (see [backend/nginx/ssl/README.md](backend/nginx/ssl/README.md))
+3. **Cloudflare API DNS** — proxied record for `api.status.stakecraft.com`, SSL mode Flexible or Full
 4. **Start API** — `./scripts/prod-up.sh` or `cd backend && docker compose up --build -d`
-5. **DNS** — point `api.status.stakecraft.com` at the server
-6. **systemd (optional)** — `sudo ./deploy/systemd/install.sh` then `systemctl enable --now status-page-api`
+5. **systemd (optional)** — `sudo ./deploy/systemd/install.sh`
 
 GitHub Actions (optional): set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for Pages deploy.
 
@@ -136,7 +130,6 @@ GitHub Actions (optional): set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID
 *   **Git:** For version control.
 *   **Node.js & npm:** For the backend proxy server (primarily for `npm install` within Docker build).
 *   **Docker & Docker Compose:** For running the backend services (Node.js proxy and Nginx).
-*   **OpenSSL (or similar):** To generate self-signed SSL certificates for local development/testing (or use CA-issued certs for production).
 
 ### Backend (local)
 
@@ -148,7 +141,7 @@ Production API runs on bare metal via Docker Compose — see [deploy/README.md](
 
 ### Frontend (local)
 
-Open `http://localhost:8080` via Docker Compose. `docs/config.js` automatically uses `http://localhost:3000` when served from localhost.
+Open `http://localhost:8080` via Docker Compose. `docs/config.js` automatically uses `http://localhost:3333` when served from localhost.
 
 Production frontend is deployed from `docs/` to Cloudflare Pages — no build step required.
 
@@ -165,7 +158,7 @@ Production frontend is deployed from `docs/` to Cloudflare Pages — no build st
 
 ## Development Notes
 
-*   **Backend Changes:** If you change `backend/proxy-server.js` or `backend/proxy-services-config.yaml` (and `proxy-services-config.yaml` is mounted as a volume in `docker-compose.yml`), you might only need to restart the `app` container: `docker-compose restart app`. If you change `package.json` or `Dockerfile`, you'll need to rebuild the image: `docker-compose up --build -d app`.
+*   **Backend Changes:** If you change `backend/proxy-server.js`, restart the API container (`docker compose restart api`). Rebuild after `package.json` or `Dockerfile` changes: `docker compose up --build -d api`. Update `config/services.yaml` and restart the API to pick up service config changes.
 *   **Frontend Changes:** Push to `main` to redeploy Cloudflare Pages (or wait for the GitHub Action). For local testing against a deployed API, temporarily allow your dev origin in `CORS_ORIGIN` on the backend.
 
 ## Key File Summary
@@ -179,7 +172,7 @@ Production frontend is deployed from `docs/` to Cloudflare Pages — no build st
 *   **`backend/proxy-services-config.yaml`**: Defines the specific Prometheus metrics, job labels, and healthy values for each service the proxy can query.
 *   **`backend/Dockerfile`**: Instructions to build the Node.js proxy application into a Docker image.
 *   **`backend/docker-compose.yml`**: Defines how to run the `app` (Node.js proxy) and `nginx` services together.
-*   **`backend/nginx/nginx.conf`**: Nginx configuration for handling SSL, redirecting HTTP to HTTPS, and reverse proxying to the Node.js app.
+*   **`backend/nginx/nginx.conf`**: Nginx configuration for reverse proxying to the Node.js app.
 *   **`backend/.env`**: Stores environment-specific configuration for the backend (e.g., Prometheus URL, port, GitHub details). **Crucially, this file is NOT committed to Git.**
 *   **`.github/ISSUE_TEMPLATE.md`**: The default GitHub issue template, tailored for reporting incidents.
 *   **`.gitignore`**: Tells Git which files/directories to ignore (e.g., `node_modules/`, `.env`).

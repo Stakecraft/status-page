@@ -1,7 +1,7 @@
 // config.js (Frontend Configuration)
 
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3000'
+    ? 'http://localhost:3333'
     : 'https://api.status.stakecraft.com';
 
 // Use v2 batch API (recommended). Set to false to fall back to legacy v1 per-service endpoints.

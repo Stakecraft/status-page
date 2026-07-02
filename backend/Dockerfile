@@ -8,6 +8,6 @@ RUN npm install --omit=dev
 COPY backend/ ./
 COPY config/services.yaml.example ./config/services.yaml
 
-EXPOSE 3000
+EXPOSE 3333
 
 CMD [ "node", "proxy-server.js" ]

@@ -6,13 +6,6 @@ backend/node_modules/
 .DS_Store
 *.pem
 
-# SSL certificates (if self-signed and stored in repo - better to keep out)
-backend/nginx/ssl/*.pem
-backend/nginx/ssl/*.crt
-backend/nginx/ssl/*.key
-# backend/nginx/ssl/selfsigned.key
-# backend/nginx/ssl/selfsigned.crt
-
 backend/proxy-services-config.yaml
 config/services.yaml
 
