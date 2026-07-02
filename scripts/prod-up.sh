@@ -32,6 +32,6 @@ for i in $(seq 1 30); do
 done
 
 echo
-echo "API (via Nginx): http://api.status.stakecraft.com (HTTPS via Cloudflare)"
+echo "API (via Nginx): http://api.status.stakecraft.com:8088 (HTTPS via Cloudflare if configured)"
 echo "View logs:       cd backend && docker compose logs -f"
 echo "Stop:            cd backend && docker compose down"

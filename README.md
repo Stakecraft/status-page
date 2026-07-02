@@ -102,7 +102,7 @@ docker compose up --build -d    # rebuild after code changes
     *   Fetches specific GitHub issues based on repository and label, using a GitHub token.
     *   Configured with CORS to only allow requests from the specified frontend domain.
 *   **Dockerized Backend:** The backend proxy and Nginx are containerized using Docker and Docker Compose for easier deployment and management.
-*   **Nginx Reverse Proxy:** Proxies HTTP on port 80 to the Node.js app (TLS terminated by Cloudflare).
+*   **Nginx Reverse Proxy:** Proxies HTTP on host port 8088 to the Node.js app (TLS terminated by Cloudflare).
 
 ## Production Deployment
 

@@ -5,7 +5,7 @@
 | Frontend | `https://status.stakecraft.com` | Cloudflare Pages |
 | API | `https://api.status.stakecraft.com` | Bare metal (Docker Compose) |
 
-The frontend is static (`docs/`). The API runs as two containers: Node.js app + Nginx on port 80. **HTTPS is terminated by Cloudflare** in front of the origin.
+The frontend is static (`docs/`). The API runs as two containers: Node.js app + Nginx on host port **8088**. **HTTPS is terminated by Cloudflare** in front of the origin.
 
 ---
 
@@ -46,9 +46,9 @@ Manifests: `backend/docker-compose.yml` (app + nginx).
 ### Server prerequisites
 
 - Docker and Docker Compose
-- Port **80** open on the firewall (443 handled by Cloudflare)
+- Port **8088** open on the firewall (443 handled by Cloudflare)
 - DNS **proxied** A/CNAME for `api.status.stakecraft.com` → server IP (orange cloud in Cloudflare)
-- Cloudflare SSL mode **Flexible** or **Full** for the API subdomain (origin serves HTTP only)
+- Cloudflare SSL mode **Flexible** or **Full** for the API subdomain (origin serves HTTP on port **8088**)
 - Prometheus reachable from the server (private network; do not expose publicly)
 
 ### One-time setup on the server
@@ -103,7 +103,9 @@ docker compose -f backend/docker-compose.yml logs -f
 | `STATUS_PAGE_URL` | `https://status.stakecraft.com` |
 | `ACTUAL_PROMETHEUS_URL` | Prometheus URL reachable from the server |
 
-The app container listens on port 3333 **inside Docker only**. Nginx proxies HTTP on port 80 — do not publish port 3333 on the host (rate limiting relies on nginx setting `X-Forwarded-For`).
+The app container listens on port 3333 **inside Docker only**. Nginx listens on host port **8088** — do not publish port 3333 on the host (rate limiting relies on nginx setting `X-Forwarded-For`).
+
+**Cloudflare note:** By default Cloudflare connects to origin ports 80/443. If the API subdomain is proxied through Cloudflare, set an **Origin Rule** or DNS configuration so traffic reaches port **8088**, or expose the API directly (grey cloud) on `http://your-server:8088`.
 
 ### systemd (start on boot)
 
@@ -147,7 +149,7 @@ Optional: copy `deploy/systemd/status-page-api.env.example` to `/etc/default/sta
 
 ```
 Browser → status.stakecraft.com (Cloudflare Pages, static docs/)
-       → api.status.stakecraft.com (Cloudflare HTTPS → origin Nginx :80 → app :3333)
+       → api.status.stakecraft.com (Cloudflare HTTPS → origin Nginx :8088 → app :3333)
        → Prometheus (internal)
 ```
 
