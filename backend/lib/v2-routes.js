@@ -8,7 +8,7 @@ const {
     isValidHistoryRange,
     getRangeStartDate,
     alignHistoricalPoints,
-    historyValueToRatio,
+    mapHistoryRangeValues,
     parseInstantValue,
     valueToStatus,
 } = require('./health');
@@ -154,11 +154,7 @@ function createV2Router({ servicesConfig, prometheus, useRecordingRules = false 
             const condition = getHealthCondition(service);
             let rawPoints = [];
             if (result && result.length > 0 && result[0].values) {
-                rawPoints = result[0].values.map(([timestamp, value]) => ({
-                    timestamp,
-                    uptimeRatio: historyValueToRatio(value, condition),
-                    hasData: true,
-                }));
+                rawPoints = mapHistoryRangeValues(result[0].values, condition);
             }
 
             const historicalData = alignHistoricalPoints(rawPoints, range);
@@ -204,11 +200,7 @@ function createV2Router({ servicesConfig, prometheus, useRecordingRules = false 
 
                     let rawPoints = [];
                     if (result && result.length > 0 && result[0].values) {
-                        rawPoints = result[0].values.map(([timestamp, value]) => ({
-                            timestamp,
-                            uptimeRatio: historyValueToRatio(value, condition),
-                            hasData: true,
-                        }));
+                        rawPoints = mapHistoryRangeValues(result[0].values, condition);
                     }
 
                     const historicalData = alignHistoricalPoints(rawPoints, range);

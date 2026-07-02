@@ -2,6 +2,8 @@ const RECORDING_RULE_UP = 'stakecraft:service:up';
 const RECORDING_RULE_UPTIME_1D = 'stakecraft:service:uptime_ratio:1d';
 const RECORDING_RULE_UPTIME_30D = 'stakecraft:service:uptime_ratio:30d';
 
+const SECONDS_PER_DAY = 86400;
+
 function evaluateHealthCondition(currentValue, healthCondition) {
     const numValue = parseFloat(currentValue);
     if (Number.isNaN(numValue)) {
@@ -140,6 +142,20 @@ function buildHistoryQuery(service, useRecordingRules) {
     // avg_over_time on the raw metric; 0/1 gauges yield uptime ratio directly.
     // Block-height gauges are normalized to 0/1 when mapping history points.
     return `avg_over_time(${vectorQuery}[1d])`;
+}
+
+// avg_over_time(...[1d]) at UTC midnight T averages the prior calendar day (T-1d..T).
+// Bars are labeled by coverage day, not evaluation timestamp.
+function historyEvaluationToCoverageDay(timestampSec) {
+    return timestampSec - SECONDS_PER_DAY;
+}
+
+function mapHistoryRangeValues(values, condition) {
+    return values.map(([timestamp, value]) => ({
+        timestamp: historyEvaluationToCoverageDay(timestamp),
+        uptimeRatio: historyValueToRatio(value, condition),
+        hasData: true,
+    }));
 }
 
 function historyValueToRatio(rawValue, condition) {
@@ -297,6 +313,8 @@ module.exports = {
     buildHistoryQuery,
     buildStatusQuery,
     buildUptime30dQuery,
+    historyEvaluationToCoverageDay,
+    mapHistoryRangeValues,
     historyValueToRatio,
     computeOverallStatus,
     computeOverallUptimePercent,
