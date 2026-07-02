@@ -7,6 +7,9 @@ backend/node_modules/
 *.pem
 
 # SSL certificates (if self-signed and stored in repo - better to keep out)
+backend/nginx/ssl/*.pem
+backend/nginx/ssl/*.crt
+backend/nginx/ssl/*.key
 # backend/nginx/ssl/selfsigned.key
 # backend/nginx/ssl/selfsigned.crt
 
@@ -15,6 +18,7 @@ config/services.yaml
 
 # Environment files
 .env
+deploy/k8s/secret.env
 
 # Logs
 logs

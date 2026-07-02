@@ -1,0 +1,27 @@
+[Unit]
+Description=StakeCraft Status Page API (Docker Compose)
+Documentation=https://github.com/Stakecraft/status-page/blob/main/deploy/README.md
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# Change this path if the repo lives elsewhere (see deploy/systemd/install.sh)
+WorkingDirectory=/opt/status-page/backend
+
+# Optional override for services.yaml location (default: ../config/services.yaml)
+# EnvironmentFile=-/etc/default/status-page-api
+
+ExecStartPre=/usr/bin/docker compose config --quiet
+ExecStart=/usr/bin/docker compose up -d --remove-orphans --build --wait
+ExecReload=/usr/bin/docker compose up -d --remove-orphans --build --wait
+ExecStop=/usr/bin/docker compose down
+
+TimeoutStartSec=300
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: status-page-api
+  namespace: status-page
+  annotations:
+    # Adjust to your cluster's cert-manager issuer
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.status.stakecraft.com
+      secretName: status-page-api-tls
+  rules:
+    - host: api.status.stakecraft.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: status-page-api
+                port:
+                  number: 80

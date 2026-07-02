@@ -1,0 +1,35 @@
+name: Publish API image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'config/services.yaml.example'
+      - 'backend/Dockerfile'
+      - '.github/workflows/publish-api.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/stakecraft/status-page-api:latest
+            ghcr.io/stakecraft/status-page-api:${{ github.sha }}

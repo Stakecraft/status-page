@@ -1,7 +1,5 @@
-version: '3.8'
-
-# Production deployment (API + Nginx reverse proxy with SSL).
-# For local development, use the root docker-compose.yml instead:
+# Production API on bare metal (Node app + Nginx with TLS).
+# Local dev stack (API + static frontend): use root docker-compose.yml
 #   cd .. && ./scripts/dev-up.sh
 
 services:
@@ -12,15 +10,24 @@ services:
     container_name: status_page_app
     restart: unless-stopped
     env_file:
-      - .env # Load environment variables from .env file in this directory
-    # The environment variables (PROXY_PORT, ACTUAL_PROMETHEUS_URL, NODE_ENV)
-    # will be picked up from the .env file by docker-compose and passed to the container.
-    # Your proxy-server.js already reads these from process.env.
+      - .env
+    environment:
+      PROXY_PORT: 3000
+      SERVICES_CONFIG_PATH: /usr/src/app/config/services.yaml
+      API_V2_ENABLED: "true"
+      USE_RECORDING_RULES: "false"
+      NODE_ENV: production
     volumes:
-      - ../config/services.yaml.example:/usr/src/app/config/services.yaml:ro
+      - ${SERVICES_CONFIG:-../config/services.yaml}:/usr/src/app/config/services.yaml:ro
       - ./proxy-services-config.yaml:/usr/src/app/proxy-services-config.yaml:ro
-    # networks:
-    #   - app-network # See below if using a custom network
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   nginx:
     image: nginx:stable-alpine
@@ -31,13 +38,11 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro # Mount the SSL certificates
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot-webroot:/var/www/certbot:ro
     depends_on:
-      - app
-    # networks:
-    #   - app-network
+      app:
+        condition: service_healthy
 
-# Optional: Define a custom network if you want more isolation
-# networks:
-#   app-network:
-#     driver: bridge 
+volumes:
+  certbot-webroot:

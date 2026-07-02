@@ -1,6 +1,8 @@
 # Status Page Project
 
-This project implements a status page that displays the current and historical uptime for various monitored services, and a separate page to display incident history fetched from GitHub Issues. The frontend is designed to be hosted on GitHub Pages (or another static hosting provider), and the backend is a Node.js proxy server designed to be run with Docker and an Nginx reverse proxy.
+This project implements a status page that displays the current and historical uptime for various monitored services, and a separate page to display incident history fetched from GitHub Issues. The frontend is static (`docs/`) and the backend is a Node.js API that queries Prometheus.
+
+**Production:** frontend on **Cloudflare Pages** (`status.stakecraft.com`), API on **bare metal with Docker Compose** (`api.status.stakecraft.com`). See [deploy/README.md](deploy/README.md).
 
 > **v2 Implementation:** Branch `proposal/status-page-v2-grafana` implements the Grafana-centric architecture. See [docs/proposals/STATUS_PAGE_V2.md](docs/proposals/STATUS_PAGE_V2.md) for the design doc.
 
@@ -55,7 +57,7 @@ docker compose up --build -d    # rebuild after code changes
 
 **Config:** `config/services.yaml` is mounted into the API container. Copy from `config/services.yaml.example` if missing. Map `health.query` values to your Prometheus metrics (see legacy `backend/proxy-services-config.yaml` for reference).
 
-**Production:** use `backend/docker-compose.yml` for the Nginx + SSL deployment behind `api.status.stakecraft.com`.
+**Production:** see [deploy/README.md](deploy/README.md) for Cloudflare Pages + bare-metal Docker Compose.
 
 ## Project Structure
 
@@ -107,12 +109,27 @@ docker compose up --build -d    # rebuild after code changes
     *   Redirects HTTP to HTTPS.
     *   Serves the backend application.
 
-## Domain Setup (Example)
+## Production Deployment
 
-*   **Frontend Hostname:** `status.stakecraft.com` (Served by GitHub Pages)
-*   **Backend API Hostname:** `api.status.stakecraft.com` (Served by your server running Docker with Nginx)
+| Component | URL | Platform |
+|-----------|-----|----------|
+| Frontend | `https://status.stakecraft.com` | Cloudflare Pages (`docs/`, no build step) |
+| API | `https://api.status.stakecraft.com` | Bare metal — `backend/docker-compose.yml` (app + Nginx) |
 
-## Setup and Running
+Full step-by-step instructions: **[deploy/README.md](deploy/README.md)**
+
+Quick checklist:
+
+1. **Cloudflare Pages** — connect Git, output dir `docs`, custom domain `status.stakecraft.com`
+2. **Server** — clone repo, configure `config/services.yaml` and `backend/.env`
+3. **TLS** — place `fullchain.pem` + `privkey.pem` in `backend/nginx/ssl/` (see [backend/nginx/ssl/README.md](backend/nginx/ssl/README.md))
+4. **Start API** — `./scripts/prod-up.sh` or `cd backend && docker compose up --build -d`
+5. **DNS** — point `api.status.stakecraft.com` at the server
+6. **systemd (optional)** — `sudo ./deploy/systemd/install.sh` then `systemctl enable --now status-page-api`
+
+GitHub Actions (optional): set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for Pages deploy.
+
+## Setup and Running (Local)
 
 ### Prerequisites
 
@@ -121,84 +138,21 @@ docker compose up --build -d    # rebuild after code changes
 *   **Docker & Docker Compose:** For running the backend services (Node.js proxy and Nginx).
 *   **OpenSSL (or similar):** To generate self-signed SSL certificates for local development/testing (or use CA-issued certs for production).
 
-### 1. Backend Setup (Docker with Nginx)
+### Backend (local)
 
-The backend consists of your Node.js proxy application and an Nginx server acting as a reverse proxy.
+1. Copy `backend/.env.example` to `backend/.env` and set `ACTUAL_PROMETHEUS_URL`, `GITHUB_TOKEN`, etc.
+2. Copy `config/services.yaml.example` to `config/services.yaml` and configure your services.
+3. Run `docker compose up --build -d` from the repo root (see [Local Development](#local-development-docker-compose) above).
 
-1.  **Navigate to the `backend` directory:**
-    ```bash
-    cd backend
-    ```
+Production API runs on bare metal via Docker Compose — see [deploy/README.md](deploy/README.md).
 
-2.  **Configure Environment Variables:**
-    *   Copy the example environment file:
-        ```bash
-        cp .env.example .env
-        ```
-    *   Edit `backend/.env` and set the following variables:
-        *   `PROXY_PORT`: The port the Node.js application will listen on (default is `3000`). Nginx will proxy to this.
-        *   `ACTUAL_PROMETHEUS_URL`: The full URL of your actual Prometheus instance (e.g., `http://your-prometheus-ip:9090`).
-        *   `NODE_ENV`: Set to `production` for deployment.
-        *   `GITHUB_TOKEN`: A GitHub Personal Access Token with `repo` scope (or fine-grained access to the issues repository) to fetch incidents. **Keep this secret.**
-        *   `GITHUB_REPO_OWNER`: The owner of the GitHub repository where incidents are tracked (e.g., `Stakecraft`).
-        *   `GITHUB_REPO_NAME`: The name of the GitHub repository (e.g., `status-page`).
-        *   `GITHUB_INCIDENT_LABEL`: The label used to identify incident issues in the GitHub repository (e.g., `incident`).
+### Frontend (local)
 
-3.  **SSL Certificates for Nginx:**
-    *   The Nginx configuration (`backend/nginx/nginx.conf`) is set up for HTTPS.
-    *   **For Production:** Obtain SSL certificates for `api.status.stakecraft.com` from a Certificate Authority (e.g., Let's Encrypt). Place your certificate and private key (e.g., `fullchain.pem` and `privkey.pem`) into the `backend/nginx/ssl/` directory. You will need to update the `ssl_certificate` and `ssl_certificate_key` directives in `backend/nginx/nginx.conf` to point to your actual certificate files.
-    *   **For Local Development/Testing (Self-Signed):**
-        *   Ensure the `backend/nginx/ssl/` directory exists.
-        *   Generate self-signed certificates. Run this command from the project root (or adjust paths accordingly):
-            ```bash
-            openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout backend/nginx/ssl/selfsigned.key -out backend/nginx/ssl/selfsigned.crt
-            ```
-            When prompted for "Common Name (e.g. server FQDN or YOUR name)", enter `api.status.stakecraft.com` (or `localhost` if testing Nginx directly on localhost before DNS setup).
-        *   The `backend/nginx/nginx.conf` is pre-configured to use `selfsigned.crt` and `selfsigned.key`.
+Open `http://localhost:8080` via Docker Compose. `docs/config.js` automatically uses `http://localhost:3000` when served from localhost.
 
-4.  **Configure Nginx:**
-    *   Open `backend/nginx/nginx.conf`.
-    *   Ensure `server_name` directives are set to `api.status.stakecraft.com`.
+Production frontend is deployed from `docs/` to Cloudflare Pages — no build step required.
 
-5.  **Build and Run with Docker Compose:**
-    *   From the `backend` directory, run:
-        ```bash
-        docker-compose up --build -d
-        ```
-        *   `--build`: Builds the Node.js application image if it doesn't exist or if `Dockerfile` or related files changed.
-        *   `-d`: Runs the containers in detached mode (in the background).
-    *   To view logs: `docker-compose logs -f`
-    *   To stop: `docker-compose down`
-
-6.  **DNS for Backend:**
-    *   Configure a DNS 'A' record for `api.status.stakecraft.com` to point to the public IP address of the server where you are running Docker Compose.
-
-7.  **Firewall:**
-    *   Ensure your server's firewall allows incoming connections on ports `80` (for HTTP to HTTPS redirect) and `443` (for HTTPS).
-
-### 2. Frontend Setup (GitHub Pages)
-
-1.  **Configure API Endpoint:**
-    *   Edit `docs/config.js`.
-    *   Set the `API_BASE_URL` to your backend API endpoint. This is used for fetching both service statuses and incidents.
-        ```javascript
-        const API_BASE_URL = 'https://api.status.stakecraft.com'; // Or http://localhost:3000 for local dev
-        ```
-
-2.  **Deploy to GitHub Pages:**
-    *   Create a new repository on GitHub.
-    *   Push your project code (including the `docs` directory) to the repository.
-    *   In your GitHub repository settings, go to the "Pages" section.
-    *   Choose the branch you want to deploy from (e.g., `main`).
-    *   Select the `/docs` folder as the source for GitHub Pages.
-    *   Save the changes.
-
-3.  **Custom Domain for Frontend (status.stakecraft.com):**
-    *   In your GitHub Pages settings, add `status.stakecraft.com` as your custom domain.
-    *   Follow GitHub's instructions for configuring your DNS provider. This usually involves adding a CNAME record for `status.stakecraft.com` pointing to `your-github-username.github.io.` (or specific A records if preferred).
-    *   Ensure "Enforce HTTPS" is checked in GitHub Pages settings once your custom domain is active.
-
-### 3. CORS Configuration (Verification)
+### CORS Configuration (Verification)
 
 *   The backend proxy (`backend/proxy-server.js`) is configured with CORS options:
     ```javascript
@@ -212,7 +166,7 @@ The backend consists of your Node.js proxy application and an Nginx server actin
 ## Development Notes
 
 *   **Backend Changes:** If you change `backend/proxy-server.js` or `backend/proxy-services-config.yaml` (and `proxy-services-config.yaml` is mounted as a volume in `docker-compose.yml`), you might only need to restart the `app` container: `docker-compose restart app`. If you change `package.json` or `Dockerfile`, you'll need to rebuild the image: `docker-compose up --build -d app`.
-*   **Frontend Changes:** If you're testing the frontend locally and it's making requests to a deployed backend, ensure your backend's CORS policy temporarily allows your local development origin or use a browser extension to bypass CORS for local dev only. After deploying frontend changes to GitHub Pages, changes should reflect after the GitHub Pages build process.
+*   **Frontend Changes:** Push to `main` to redeploy Cloudflare Pages (or wait for the GitHub Action). For local testing against a deployed API, temporarily allow your dev origin in `CORS_ORIGIN` on the backend.
 
 ## Key File Summary
 
